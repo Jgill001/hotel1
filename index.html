@@ -11,34 +11,36 @@
     </style>
     
     <script>
-      // 1. Global Crash Catchers
-      window.onerror = function(m,u,l) { document.getElementById("debug-console").innerHTML += "<br><span style='color:red'>ERR: " + m + "</span>"; };
+      // 1. Crash Catchers
+      window.onerror = function(m) { document.getElementById("debug-console").innerHTML += "<br><span style='color:red'>ERR: " + m + "</span>"; };
       window.onunhandledrejection = function(e) { document.getElementById("debug-console").innerHTML += "<br><span style='color:orange'>PROMISE: " + (e.reason||"Unknown") + "</span>"; };
 
-      // 2. The Universal Sitelock Interceptor
-      const originalEval = window.eval;
-      window.eval = function(code) {
-          document.getElementById("debug-console").innerHTML += "<br><span style='color:magenta'>Intercepted Engine Eval!</span>";
-          if (typeof code === 'string' && code.includes('window.location')) return;
-          return originalEval(code);
+      // 2. The Network Sniffer (Wiretapping background downloads)
+      const originalFetch = window.fetch;
+      window.fetch = async function(...args) {
+          var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : 'unknown');
+          // Ignore the core files we already know about to avoid spam
+          if(!url.includes('.data') && !url.includes('.wasm') && !url.includes('.js')) { 
+              document.getElementById("debug-console").innerHTML += "<br><span style='color:lightblue'>FETCHING: " + url.substring(url.lastIndexOf('/')+1) + "</span>";
+          }
+          return originalFetch.apply(this, args);
       };
 
-      // 3. The God-Mode Proxy SDK
-      window.initPokiBridge = function() { return true; };
-      window.PokiSDK = new Proxy({}, {
-          get: function(target, prop) {
-              if (prop === 'then') return undefined; // Required for Promise resolution
-              return function(...args) {
-                  var debug = document.getElementById("debug-console");
-                  if(debug) debug.innerHTML += "<br><span style='color:yellow'>SDK Access: " + String(prop) + "</span>";
-                  return Promise.resolve(true); // Always tell Unity it succeeded
-              };
+      const originalXHR = window.XMLHttpRequest.prototype.open;
+      window.XMLHttpRequest.prototype.open = function(method, url) {
+          if(typeof url === 'string' && !url.includes('.data') && !url.includes('.wasm') && !url.includes('.js')) {
+              document.getElementById("debug-console").innerHTML += "<br><span style='color:lightblue'>XHR REQ: " + url.substring(url.lastIndexOf('/')+1) + "</span>";
           }
-      });
+          return originalXHR.apply(this, arguments);
+      };
+
+      // 3. Poki Mock (Kept active just in case)
+      window.initPokiBridge = function() { return true; };
+      window.PokiSDK = new Proxy({}, { get: function(t, p) { if (p === 'then') return undefined; return function() { return Promise.resolve(true); }; } });
     </script>
   </head>
   <body>
-    <div id="debug-console">Booting God-Mode...</div>
+    <div id="debug-console">Booting Network Sniffer...</div>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     
@@ -54,11 +56,11 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3",
-        cacheControl: function (url) { return "no-store"; }, // Force ignore corrupted phone storage
+        cacheControl: function (url) { return "no-store"; }, 
       };
 
       createUnityInstance(document.querySelector("#unity-canvas"), config, function(p) {
-          if (p === 1 && !window.loggedData) { log("Data loaded."); window.loggedData = true; }
+          if (p === 1 && !window.loggedData) { log("Core chunks loaded."); window.loggedData = true; }
       }).then(function(u) {
           log("<span style='color:cyan'>WASM Instance Loaded!</span>");
       });
