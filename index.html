@@ -3,58 +3,45 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Perfect Hotel - Private Server</title>
+    <title>My Perfect Hotel - Asset Interrogator</title>
     <style>
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
-      #unity-canvas { width: 100%; height: 100%; background: #00C565; }
-      #debug-console { position: absolute; top: 10px; left: 10px; color: #00FF00; background: rgba(0,0,0,0.85); padding: 10px; z-index: 9999; font-family: monospace; font-size: 13px; pointer-events: none; }
+      body { background-color: #111; color: #00FF00; font-family: monospace; padding: 20px; font-size: 14px; }
+      h2 { color: #FFF; }
+      .ok { color: #00FF00; }
+      .err { color: #FF0000; font-weight: bold; }
     </style>
   </head>
   <body>
-    <div id="debug-console">Running 50% WASM Diagnostic...</div>
-    <canvas id="unity-canvas"></canvas>
-    <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
-    
+    <h2>Asset Interrogator</h2>
+    <div id="log">Checking GitHub repository files...<br><br></div>
+
     <script>
-      var debug = document.getElementById("debug-console");
-      function log(msg) { debug.innerHTML += "<br>" + msg; }
+      var logDiv = document.getElementById("log");
+      function log(msg) { logDiv.innerHTML += msg + "<br>"; }
 
-      // 1. WASM Binary Integrity Check
-      fetch("Build/9d94f3fbc22c5914756c67722e0cdaca.wasm")
-        .then(response => response.arrayBuffer())
-        .then(buffer => {
-            let view = new Uint8Array(buffer);
-            let hex = view[0].toString(16) + ' ' + view[1].toString(16) + ' ' + view[2].toString(16) + ' ' + view[3].toString(16);
-            let ascii = String.fromCharCode(view[0], view[1], view[2], view[3]);
-            if (hex === "0 61 73 6d") {
-                log("<span style='color:cyan'>WASM Integrity: PASSED (\\0asm)</span>");
-            } else {
-                log("<span style='color:red'>WASM Integrity: FAILED! Header is: " + hex + " (" + ascii + ")</span>");
-            }
-        }).catch(e => log("<span style='color:red'>Fetch Error: " + e.message + "</span>"));
+      var filesToTest = [
+        "Build/101a0553a2917fd4c62a7e2159d30814.data",
+        "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
+        "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
+        "Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"
+      ];
 
-      // 2. Unity Configuration
-      var config = {
-        dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
-        frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
-        codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "master",
-        productName: "My Hotel",
-        productVersion: "1.0.3",
-        // This forces Unity to compile the WASM safely if GitHub's MIME type is wrong
-        matchWebGLToCanvasSize: false 
-      };
-
-      // Mocking Poki just in case it passes the 50% mark this time
-      window.initPokiBridge = function() { return true; };
-      window.PokiSDK = new Proxy({}, { get: () => function() { return Promise.resolve(true); } });
-
-      setTimeout(() => {
-          createUnityInstance(document.querySelector("#unity-canvas"), config).catch(e => {
-             log("<span style='color:orange'>Engine Catch: " + e + "</span>");
-          });
-      }, 1000);
+      filesToTest.forEach(function(file) {
+          log("Requesting: " + file + " ...");
+          fetch(file, { method: 'HEAD' })
+            .then(function(response) {
+                if (response.ok) {
+                    var size = response.headers.get('content-length');
+                    var type = response.headers.get('content-type');
+                    log(" -> <span class='ok'>FOUND (200 OK)</span> | Size: " + (size ? size + " bytes" : "Unknown") + " | Type: " + type);
+                } else {
+                    log(" -> <span class='err'>MISSING (" + response.status + " " + response.statusText + ")</span>");
+                }
+            })
+            .catch(function(err) {
+                log(" -> <span class='err'>NETWORK ERROR: " + err.message + "</span>");
+            });
+      });
     </script>
   </body>
 </html>
