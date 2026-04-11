@@ -2,75 +2,43 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Perfect Hotel - Private Server</title>
     <style>
-      body { 
-        padding: 0; margin: 0; background-color: #00C565; overflow: hidden; 
-        width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center;
-      }
+      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
       #unity-canvas { width: 100%; height: 100%; background: #00C565; }
-      
-      #debug-console {
-        position: absolute; top: 10px; left: 10px; color: #00FF00; background: rgba(0,0,0,0.85);
-        padding: 10px; z-index: 9999; font-family: monospace; font-size: 11px; pointer-events: none;
-        max-width: 90vw; word-wrap: break-word;
-      }
+      #debug-console { position: absolute; top: 10px; left: 10px; color: #00FF00; background: rgba(0,0,0,0.85); padding: 10px; z-index: 9999; font-family: monospace; font-size: 11px; pointer-events: none; max-width: 90vw; word-wrap: break-word; }
     </style>
     
     <script>
-      // 1. DOM Lockdown
-      (function() {
-          const originalEval = window.eval;
-          window.eval = function(code) {
-              if (typeof code === 'string' && code.includes('window.location')) {
-                  code = code.replace(/window\.location\[.*?\]\s*=\s*.*?;/g, 'return;');
-              }
-              return originalEval(code);
-          };
-      })();
+      // 1. Global Crash Catchers
+      window.onerror = function(m,u,l) { document.getElementById("debug-console").innerHTML += "<br><span style='color:red'>ERR: " + m + "</span>"; };
+      window.onunhandledrejection = function(e) { document.getElementById("debug-console").innerHTML += "<br><span style='color:orange'>PROMISE: " + (e.reason||"Unknown") + "</span>"; };
 
-      // 2. Global Crash Catchers
-      window.onerror = function(msg, url, line) {
-          var debug = document.getElementById("debug-console");
-          if(debug) debug.innerHTML += "<br><span style='color:red'>SYS ERR: " + msg + "</span>";
-      };
-      window.onunhandledrejection = function(e) {
-          var debug = document.getElementById("debug-console");
-          if(debug) debug.innerHTML += "<br><span style='color:orange'>PROMISE ERR: " + (e.reason || "Unknown") + "</span>";
+      // 2. The Universal Sitelock Interceptor
+      const originalEval = window.eval;
+      window.eval = function(code) {
+          document.getElementById("debug-console").innerHTML += "<br><span style='color:magenta'>Intercepted Engine Eval!</span>";
+          if (typeof code === 'string' && code.includes('window.location')) return;
+          return originalEval(code);
       };
 
-      // 3. Fully Logged Poki Mock
-      var initPokiBridge = function() { 
-          document.getElementById("debug-console").innerHTML += "<br>Poki Bridge Connected."; 
-          return true; 
-      };
-      window.initPokiBridge = initPokiBridge;
-      
-      var PokiSDK = {
-          init: function() { return Promise.resolve(); },
-          gameLoadingStart: function() { document.getElementById("debug-console").innerHTML += "<br>Engine: gameLoadingStart"; },
-          gameLoadingProgress: function(d) { /* Ignored to prevent log spam */ },
-          gameLoadingFinished: function() { document.getElementById("debug-console").innerHTML += "<br>Engine: gameLoadingFinished"; },
-          gameInteractive: function() { document.getElementById("debug-console").innerHTML += "<br>Engine: gameInteractive"; },
-          commercialBreak: function() { 
-              document.getElementById("debug-console").innerHTML += "<br>Engine requested Ad. Sending skip..."; 
-              return Promise.resolve(); 
-          },
-          rewardedBreak: function() { 
-              document.getElementById("debug-console").innerHTML += "<br>Engine requested Reward. Sending skip..."; 
-              return Promise.resolve(true); 
-          },
-          gameplayStart: function() {},
-          gameplayStop: function() {},
-          customEvent: function(e) { document.getElementById("debug-console").innerHTML += "<br>Engine Event: " + e; }
-      };
-      window.PokiSDK = PokiSDK;
+      // 3. The God-Mode Proxy SDK
+      window.initPokiBridge = function() { return true; };
+      window.PokiSDK = new Proxy({}, {
+          get: function(target, prop) {
+              if (prop === 'then') return undefined; // Required for Promise resolution
+              return function(...args) {
+                  var debug = document.getElementById("debug-console");
+                  if(debug) debug.innerHTML += "<br><span style='color:yellow'>SDK Access: " + String(prop) + "</span>";
+                  return Promise.resolve(true); // Always tell Unity it succeeded
+              };
+          }
+      });
     </script>
   </head>
   <body>
-    <div id="debug-console">Booting Diagnostics...</div>
+    <div id="debug-console">Booting God-Mode...</div>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     
@@ -78,36 +46,22 @@
       var debug = document.getElementById("debug-console");
       function log(msg) { debug.innerHTML += "<br>" + msg; }
 
-      var buildUrl = "Build";
       var config = {
-        dataUrl: buildUrl + "/101a0553a2917fd4c62a7e2159d30814.data",
-        frameworkUrl: buildUrl + "/2809ee090e7f1bf0e1a32425590981e7.framework.js",
-        codeUrl: buildUrl + "/9d94f3fbc22c5914756c67722e0cdaca.wasm",
+        dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
+        frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
+        codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3",
-        // Force bypassing of potentially corrupted phone cache
-        cacheControl: function (url) { return "no-store"; }, 
+        cacheControl: function (url) { return "no-store"; }, // Force ignore corrupted phone storage
       };
 
-      var canvas = document.querySelector("#unity-canvas");
-
-      try {
-        log("Starting Unity WebGL...");
-        
-        createUnityInstance(canvas, config, function(progress) {
-            // We only log when it hits 100% data download (usually the halfway mark on the bar)
-            if (progress === 1) log("Data download 100%. Instantiating WASM...");
-        }).then(function(unityInstance) {
-            log("<span style='color:cyan'>WASM Instance Loaded!</span>");
-        }).catch(function(message) {
-            log("<span style='color:red'>CRASH: " + message + "</span>");
-        });
-        
-      } catch(e) {
-        log("<span style='color:red'>JS ERROR: " + e.message + "</span>");
-      }
+      createUnityInstance(document.querySelector("#unity-canvas"), config, function(p) {
+          if (p === 1 && !window.loggedData) { log("Data loaded."); window.loggedData = true; }
+      }).then(function(u) {
+          log("<span style='color:cyan'>WASM Instance Loaded!</span>");
+      });
     </script>
   </body>
 </html>
