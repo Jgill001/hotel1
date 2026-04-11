@@ -3,44 +3,54 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Perfect Hotel - Asset Interrogator</title>
+    <title>My Perfect Hotel - Private Server</title>
     <style>
-      body { background-color: #111; color: #00FF00; font-family: monospace; padding: 20px; font-size: 14px; }
-      h2 { color: #FFF; }
-      .ok { color: #00FF00; }
-      .err { color: #FF0000; font-weight: bold; }
+      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
+      #unity-canvas { width: 100%; height: 100%; background: #00C565; }
     </style>
+    
+    <script>
+      // 1. Spoofer & Eval Blocker
+      try {
+          Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
+          Object.defineProperty(document, 'domain', { get: () => "poki.com" });
+          window.top = window.self; 
+          window.parent = window.self;
+      } catch(e) {}
+
+      const originalEval = window.eval;
+      window.eval = function(code) {
+          if (typeof code === 'string' && code.includes('window.location')) return;
+          return originalEval(code);
+      };
+
+      // 2. Silent God-Mode Poki Mock
+      window.initPokiBridge = function() { return true; };
+      window.PokiSDK = new Proxy({}, { get: () => function() { return Promise.resolve(true); } });
+    </script>
   </head>
   <body>
-    <h2>Asset Interrogator</h2>
-    <div id="log">Checking GitHub repository files...<br><br></div>
-
+    <canvas id="unity-canvas"></canvas>
+    <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
+    
     <script>
-      var logDiv = document.getElementById("log");
-      function log(msg) { logDiv.innerHTML += msg + "<br>"; }
+      // 3. The Unrestricted Config
+      // Notice we have removed all fileSize, productVersion, and cachedDecompressedFileSizes parameters.
+      // We are only telling it where the files live.
+      var config = {
+        dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
+        frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
+        codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "master",
+        productName: "My Hotel",
+        // Force the engine to ignore phone storage and just load the raw files
+        cacheControl: function (url) { return "no-store"; }
+      };
 
-      var filesToTest = [
-        "Build/101a0553a2917fd4c62a7e2159d30814.data",
-        "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
-        "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
-        "Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"
-      ];
-
-      filesToTest.forEach(function(file) {
-          log("Requesting: " + file + " ...");
-          fetch(file, { method: 'HEAD' })
-            .then(function(response) {
-                if (response.ok) {
-                    var size = response.headers.get('content-length');
-                    var type = response.headers.get('content-type');
-                    log(" -> <span class='ok'>FOUND (200 OK)</span> | Size: " + (size ? size + " bytes" : "Unknown") + " | Type: " + type);
-                } else {
-                    log(" -> <span class='err'>MISSING (" + response.status + " " + response.statusText + ")</span>");
-                }
-            })
-            .catch(function(err) {
-                log(" -> <span class='err'>NETWORK ERROR: " + err.message + "</span>");
-            });
+      // Initialize the engine with the stripped config
+      createUnityInstance(document.querySelector("#unity-canvas"), config).catch(function(e) {
+          console.error("Unity Initialization Error:", e);
       });
     </script>
   </body>
