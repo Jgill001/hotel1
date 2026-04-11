@@ -14,45 +14,63 @@
       
       #debug-console {
         position: absolute; top: 10px; left: 10px; color: #00FF00; background: rgba(0,0,0,0.85);
-        padding: 10px; z-index: 9999; font-family: monospace; font-size: 12px; pointer-events: none;
+        padding: 10px; z-index: 9999; font-family: monospace; font-size: 11px; pointer-events: none;
+        max-width: 90vw; word-wrap: break-word;
       }
     </style>
     
     <script>
-      // 1. Monkey Mart DOM Lockdown
+      // 1. DOM Lockdown
       (function() {
           const originalEval = window.eval;
           window.eval = function(code) {
               if (typeof code === 'string' && code.includes('window.location')) {
-                  code = code.replace("window.location[_0xcdc9('0x1')] = _0x3296f7;", 'return;');
+                  code = code.replace(/window\.location\[.*?\]\s*=\s*.*?;/g, 'return;');
               }
               return originalEval(code);
           };
-          window.location.replace = function(url) { console.log("Blocked replace: " + url); };
       })();
 
-      // 2. The Bulletproof Poki Mock (No external file needed)
-      // We declare it as both a 'var' and a 'window' property to bypass Unity's strict scoping
+      // 2. Global Crash Catchers
+      window.onerror = function(msg, url, line) {
+          var debug = document.getElementById("debug-console");
+          if(debug) debug.innerHTML += "<br><span style='color:red'>SYS ERR: " + msg + "</span>";
+      };
+      window.onunhandledrejection = function(e) {
+          var debug = document.getElementById("debug-console");
+          if(debug) debug.innerHTML += "<br><span style='color:orange'>PROMISE ERR: " + (e.reason || "Unknown") + "</span>";
+      };
+
+      // 3. Fully Logged Poki Mock
       var initPokiBridge = function() { 
-          console.log("Global Poki Bridge initialized."); 
+          document.getElementById("debug-console").innerHTML += "<br>Poki Bridge Connected."; 
           return true; 
       };
       window.initPokiBridge = initPokiBridge;
       
       var PokiSDK = {
           init: function() { return Promise.resolve(); },
-          gameLoadingStart: function() {},
-          gameLoadingProgress: function(data) {},
-          gameLoadingFinished: function() {},
-          gameInteractive: function() {},
-          commercialBreak: function() { return Promise.resolve(); },
-          rewardedBreak: function() { return Promise.resolve(true); }
+          gameLoadingStart: function() { document.getElementById("debug-console").innerHTML += "<br>Engine: gameLoadingStart"; },
+          gameLoadingProgress: function(d) { /* Ignored to prevent log spam */ },
+          gameLoadingFinished: function() { document.getElementById("debug-console").innerHTML += "<br>Engine: gameLoadingFinished"; },
+          gameInteractive: function() { document.getElementById("debug-console").innerHTML += "<br>Engine: gameInteractive"; },
+          commercialBreak: function() { 
+              document.getElementById("debug-console").innerHTML += "<br>Engine requested Ad. Sending skip..."; 
+              return Promise.resolve(); 
+          },
+          rewardedBreak: function() { 
+              document.getElementById("debug-console").innerHTML += "<br>Engine requested Reward. Sending skip..."; 
+              return Promise.resolve(true); 
+          },
+          gameplayStart: function() {},
+          gameplayStop: function() {},
+          customEvent: function(e) { document.getElementById("debug-console").innerHTML += "<br>Engine Event: " + e; }
       };
       window.PokiSDK = PokiSDK;
     </script>
   </head>
   <body>
-    <div id="debug-console">Booting engine...</div>
+    <div id="debug-console">Booting Diagnostics...</div>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     
@@ -69,20 +87,20 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3",
-        showBanner: function(msg, type) { log("BANNER: " + msg); }
+        // Force bypassing of potentially corrupted phone cache
+        cacheControl: function (url) { return "no-store"; }, 
       };
 
       var canvas = document.querySelector("#unity-canvas");
 
       try {
-        log("Fully isolated Poki SDK active.");
         log("Starting Unity WebGL...");
         
         createUnityInstance(canvas, config, function(progress) {
-            if (progress === 1) log("Data chunks loaded.");
+            // We only log when it hits 100% data download (usually the halfway mark on the bar)
+            if (progress === 1) log("Data download 100%. Instantiating WASM...");
         }).then(function(unityInstance) {
-            log("<span style='color:white'>Hotel Engine Initialized!</span>");
-            setTimeout(function(){ debug.style.display = "none"; }, 4000); 
+            log("<span style='color:cyan'>WASM Instance Loaded!</span>");
         }).catch(function(message) {
             log("<span style='color:red'>CRASH: " + message + "</span>");
         });
