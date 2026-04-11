@@ -31,13 +31,15 @@
           window.location.replace = function(url) { console.log("Blocked replace: " + url); };
       })();
 
-      // 2. The Dummy Bridge! (This prevents the C++ crash)
-      window.initPokiBridge = function() {
-          console.log("Dummy Poki Bridge initialized.");
+      // 2. The Bulletproof Poki Mock (No external file needed)
+      // We declare it as both a 'var' and a 'window' property to bypass Unity's strict scoping
+      var initPokiBridge = function() { 
+          console.log("Global Poki Bridge initialized."); 
+          return true; 
       };
+      window.initPokiBridge = initPokiBridge;
       
-      // 3. Fallback Poki SDK Mocks (Just in case it asks for more)
-      window.PokiSDK = {
+      var PokiSDK = {
           init: function() { return Promise.resolve(); },
           gameLoadingStart: function() {},
           gameLoadingProgress: function(data) {},
@@ -46,6 +48,7 @@
           commercialBreak: function() { return Promise.resolve(); },
           rewardedBreak: function() { return Promise.resolve(true); }
       };
+      window.PokiSDK = PokiSDK;
     </script>
   </head>
   <body>
@@ -72,7 +75,7 @@
       var canvas = document.querySelector("#unity-canvas");
 
       try {
-        log("Dummy SDK injected.");
+        log("Fully isolated Poki SDK active.");
         log("Starting Unity WebGL...");
         
         createUnityInstance(canvas, config, function(progress) {
