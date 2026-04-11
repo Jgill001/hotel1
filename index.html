@@ -7,36 +7,32 @@
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
       #unity-canvas { width: 100%; height: 100%; background: #00C565; }
+      #debug-console { position: absolute; top: 10px; left: 10px; color: #00FF00; background: rgba(0,0,0,0.85); padding: 10px; z-index: 9999; font-family: monospace; font-size: 13px; pointer-events: none; }
     </style>
     
     <script>
-      // 1. Spoofer & Eval Blocker
+      // Domain Spoofer
       try {
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
-          window.top = window.self; 
-          window.parent = window.self;
       } catch(e) {}
-
-      const originalEval = window.eval;
-      window.eval = function(code) {
-          if (typeof code === 'string' && code.includes('window.location')) return;
-          return originalEval(code);
-      };
-
-      // 2. Silent God-Mode Poki Mock
+      
+      // God-Mode Poki Mock
       window.initPokiBridge = function() { return true; };
       window.PokiSDK = new Proxy({}, { get: () => function() { return Promise.resolve(true); } });
     </script>
   </head>
   <body>
+    <div id="debug-console">Booting Full Engine...<br>Progress: 0.0%</div>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     
     <script>
-      // 3. The Unrestricted Config
-      // Notice we have removed all fileSize, productVersion, and cachedDecompressedFileSizes parameters.
-      // We are only telling it where the files live.
+      var debug = document.getElementById("debug-console");
+      function updateProgress(p) {
+          debug.innerHTML = "Booting Full Engine...<br>Progress: " + (p * 100).toFixed(1) + "%";
+      }
+
       var config = {
         dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
         frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
@@ -44,13 +40,33 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "master",
         productName: "My Hotel",
-        // Force the engine to ignore phone storage and just load the raw files
+        productVersion: "1.0.3",
+        unityVersion: "2022.3.62f2",
+        // Passing the exact metadata from Poki's original index so the loader doesn't crash
+        metadata: {
+            "poki_template_version": 1,
+            "background_color": "#00C565",
+            "decompression_fallback": "Disabled",
+            "development_player": "false",
+            "splash_screen_style": "Dark",
+            "unity_version": "2022.3.62f2",
+            "use_data_caching": "false", // Turned off to prevent phone storage corruption
+            "use_threads": "false",
+            "use_wasm": "true",
+            "use_webgl_1_0": "false",
+            "use_webgl_2_0": "true"
+        },
         cacheControl: function (url) { return "no-store"; }
       };
 
-      // Initialize the engine with the stripped config
-      createUnityInstance(document.querySelector("#unity-canvas"), config).catch(function(e) {
-          console.error("Unity Initialization Error:", e);
+      createUnityInstance(document.querySelector("#unity-canvas"), config, function(progress) {
+          updateProgress(progress);
+          if (progress === 1) debug.innerHTML += "<br>Download complete. Instantiating WASM...";
+      }).then(function(unityInstance) {
+          debug.innerHTML += "<br><span style='color:cyan'>SUCCESS! Engine running.</span>";
+          setTimeout(() => { debug.style.display = "none"; }, 4000);
+      }).catch(function(e) {
+          debug.innerHTML += "<br><span style='color:red'>CRASH: " + e + "</span>";
       });
     </script>
   </body>
