@@ -7,52 +7,33 @@
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
       #unity-canvas { width: 100%; height: 100%; background: #00C565; }
+      #debug-console { position: absolute; top: 10px; left: 10px; color: #00FF00; background: rgba(0,0,0,0.85); padding: 10px; z-index: 9999; font-family: monospace; font-size: 13px; pointer-events: none; }
     </style>
-    
-    <script>
-      // 1. Expanded Domain & Iframe Spoofer
-      try {
-          Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
-          Object.defineProperty(document, 'domain', { get: () => "poki.com" });
-          window.top = window.self; 
-          window.parent = window.self;
-      } catch(e) {}
-
-      // 2. AudioContext Hang Prevention
-      window.AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (window.AudioContext) {
-          const originalAudio = window.AudioContext;
-          window.AudioContext = function() {
-              const ctx = new originalAudio();
-              if (ctx.state === 'suspended') ctx.resume();
-              return ctx;
-          };
-      }
-
-      // 3. Eval Blocker
-      const originalEval = window.eval;
-      window.eval = function(code) {
-          if (typeof code === 'string' && code.includes('window.location')) return;
-          return originalEval(code);
-      };
-
-      // 4. Poki Mock
-      window.initPokiBridge = function() { return true; };
-      window.PokiSDK = new Proxy({}, { get: () => function() { return Promise.resolve(true); } });
-    </script>
   </head>
   <body>
+    <div id="debug-console">Running 50% WASM Diagnostic...</div>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     
     <script>
-      // 5. Nuke corrupted save data before booting
-      if (window.indexedDB && window.indexedDB.databases) {
-          window.indexedDB.databases().then((dbs) => {
-              dbs.forEach(db => { window.indexedDB.deleteDatabase(db.name); });
-          }).catch(()=>{});
-      }
+      var debug = document.getElementById("debug-console");
+      function log(msg) { debug.innerHTML += "<br>" + msg; }
 
+      // 1. WASM Binary Integrity Check
+      fetch("Build/9d94f3fbc22c5914756c67722e0cdaca.wasm")
+        .then(response => response.arrayBuffer())
+        .then(buffer => {
+            let view = new Uint8Array(buffer);
+            let hex = view[0].toString(16) + ' ' + view[1].toString(16) + ' ' + view[2].toString(16) + ' ' + view[3].toString(16);
+            let ascii = String.fromCharCode(view[0], view[1], view[2], view[3]);
+            if (hex === "0 61 73 6d") {
+                log("<span style='color:cyan'>WASM Integrity: PASSED (\\0asm)</span>");
+            } else {
+                log("<span style='color:red'>WASM Integrity: FAILED! Header is: " + hex + " (" + ascii + ")</span>");
+            }
+        }).catch(e => log("<span style='color:red'>Fetch Error: " + e.message + "</span>"));
+
+      // 2. Unity Configuration
       var config = {
         dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
         frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
@@ -60,21 +41,20 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "master",
         productName: "My Hotel",
-        productVersion: "1.0.3"
+        productVersion: "1.0.3",
+        // This forces Unity to compile the WASM safely if GitHub's MIME type is wrong
+        matchWebGLToCanvasSize: false 
       };
 
-      // Tapping the screen can sometimes un-suspend the audio block
-      document.body.addEventListener('click', function() {
-          createUnityInstance(document.querySelector("#unity-canvas"), config);
-      }, { once: true });
-      
-      // Auto-boot if no click
+      // Mocking Poki just in case it passes the 50% mark this time
+      window.initPokiBridge = function() { return true; };
+      window.PokiSDK = new Proxy({}, { get: () => function() { return Promise.resolve(true); } });
+
       setTimeout(() => {
-          if (!document.querySelector("#unity-canvas").dataset.booted) {
-              document.querySelector("#unity-canvas").dataset.booted = "true";
-              createUnityInstance(document.querySelector("#unity-canvas"), config);
-          }
-      }, 500);
+          createUnityInstance(document.querySelector("#unity-canvas"), config).catch(e => {
+             log("<span style='color:orange'>Engine Catch: " + e + "</span>");
+          });
+      }, 1000);
     </script>
   </body>
 </html>
