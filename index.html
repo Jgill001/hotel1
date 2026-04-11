@@ -3,57 +3,22 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Perfect Hotel - Local Mirror</title>
+    <title>My Perfect Hotel - Private Server</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
       #unity-canvas { width: 100%; height: 100%; background: #00C565; }
-      
-      /* Upgraded Interactive Console */
-      #debug-console { 
-        position: absolute; top: 10px; left: 10px; right: 10px; 
-        background: rgba(0,0,0,0.9); padding: 15px; z-index: 9999; 
-        border-radius: 8px; border: 2px solid #00FF00;
-        display: flex; flex-direction: column; gap: 10px;
-      }
-      #debug-title { color: #00FF00; font-family: monospace; font-size: 14px; font-weight: bold; margin: 0; text-align: center; }
-      #bundle-list { 
-        width: 100%; height: 150px; background: #111; color: yellow; 
-        border: 1px solid #444; font-family: monospace; font-size: 12px; 
-        padding: 5px; box-sizing: border-box; resize: none; white-space: pre; overflow-wrap: normal; overflow-x: auto;
-      }
-      #copy-btn {
-        background: #00C565; color: white; border: none; padding: 12px; 
-        font-size: 14px; font-weight: bold; border-radius: 4px; cursor: pointer;
-      }
     </style>
     
     <script>
       (function() {
+          // 1. Silent Local Traffic Diverter
           const originalFetch = window.fetch;
-          const missingFiles = new Set();
-
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
               
               if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
                   const parts = url.split('StreamingAssets');
                   const localPath = "./StreamingAssets" + parts[parts.length - 1];
-                  
-                  // Intercept missing bundles/hashes and add to the text area
-                  const fileName = parts[parts.length - 1];
-                  if ((fileName.includes('.bundle') || fileName.includes('.hash') || fileName.includes('.json')) 
-                      && !missingFiles.has(fileName)) {
-                      
-                      missingFiles.add(fileName);
-                      const textArea = document.getElementById("bundle-list");
-                      if(textArea) {
-                          // Format it perfectly for our Colab Python list
-                          textArea.value += '"' + fileName.replace(/^\//, 'StreamingAssets/') + '",\n';
-                          // Auto-scroll to the bottom
-                          textArea.scrollTop = textArea.scrollHeight;
-                      }
-                  }
-                  
                   return originalFetch(localPath, init);
               }
               return originalFetch(input, init);
@@ -68,22 +33,22 @@
               return oxhr.apply(this, arguments);
           };
 
-          // Maintain the "Poki" identity for internal sitelocks
+          // 2. Sitelock Spoofing
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
       })();
 
+      // 3. Poki SDK Bypass
       window.initPokiBridge = function() { return true; };
-      window.PokiSDK = new Proxy({}, { get: () => function() { return Promise.resolve(true); } });
+      window.PokiSDK = new Proxy({}, { 
+          get: (t, p) => {
+              if (p === 'then') return undefined;
+              return () => Promise.resolve(true);
+          } 
+      });
     </script>
   </head>
   <body>
-    <div id="debug-console">
-      <p id="debug-title">MISSING ASSETS TRACKER</p>
-      <textarea id="bundle-list" readonly></textarea>
-      <button id="copy-btn" onclick="copyBundles()">COPY BUNDLE LIST</button>
-    </div>
-
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
@@ -96,22 +61,17 @@
         productName: "My Hotel",
         productVersion: "1.0.3"
       };
-      createUnityInstance(document.querySelector("#unity-canvas"), config);
+      
+      // Auto-resume audio context for mobile devices
+      const canvas = document.querySelector("#unity-canvas");
+      canvas.addEventListener('touchstart', () => {
+          if (window.AudioContext || window.webkitAudioContext) {
+              let ctx = new (window.AudioContext || window.webkitAudioContext)();
+              if (ctx.state === 'suspended') ctx.resume();
+          }
+      }, { once: true });
 
-      function copyBundles() {
-          const textArea = document.getElementById("bundle-list");
-          textArea.select();
-          document.execCommand('copy');
-          const btn = document.getElementById("copy-btn");
-          btn.innerText = "COPIED TO CLIPBOARD!";
-          btn.style.background = "#00FF00";
-          btn.style.color = "#000";
-          setTimeout(() => {
-              btn.innerText = "COPY BUNDLE LIST";
-              btn.style.background = "#00C565";
-              btn.style.color = "#FFF";
-          }, 2000);
-      }
+      createUnityInstance(canvas, config);
     </script>
   </body>
 </html>
