@@ -3,64 +3,53 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Perfect Hotel - Ghost Tunnel Server</title>
+    <title>My Perfect Hotel - Local Mirror</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
       #unity-canvas { width: 100%; height: 100%; background: #00C565; }
+      #debug-console { position: absolute; top: 10px; left: 10px; color: #00FF00; background: rgba(0,0,0,0.85); padding: 10px; z-index: 9999; font-family: monospace; font-size: 11px; pointer-events: none; max-width: 90vw; word-wrap: break-word; }
     </style>
     
     <script>
       (function() {
-          // 1. THE GHOST TUNNEL (The Ultimate Bypass)
-          const PROXY_URL = "https://api.allorigins.win/raw?url=";
           const originalFetch = window.fetch;
-
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
               
-              if (typeof url === 'string' && (url.includes('poki.com') || url.includes('StreamingAssets'))) {
-                  // If the URL is already absolute to Poki, use it. 
-                  // If it's relative, we build the full Poki path.
-                  let targetUrl = url;
-                  if (!url.startsWith('http')) {
-                      targetUrl = "https://game-cdn.poki.com/en/g/my-perfect-hotel/" + url.replace('./', '');
+              if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+                  const parts = url.split('StreamingAssets');
+                  const localPath = "./StreamingAssets" + parts[parts.length - 1];
+                  
+                  // If it's asking for a bundle, log it to the screen so we can heist it next!
+                  if (localPath.includes('.bundle') || localPath.includes('.hash')) {
+                      document.getElementById("debug-console").innerHTML += "<br><span style='color:yellow'>MISSING BUNDLE: " + parts[parts.length - 1] + "</span>";
                   }
                   
-                  // We tunnel the request through the proxy to hide it from your enterprise filter
-                  const tunneledUrl = PROXY_URL + encodeURIComponent(targetUrl);
-                  console.log("TUNNELING: " + targetUrl);
-                  
-                  return originalFetch(tunneledUrl, init);
+                  return originalFetch(localPath, init);
               }
               return originalFetch(input, init);
           };
 
-          // Override XHR for the same purpose
           const oxhr = window.XMLHttpRequest.prototype.open;
           window.XMLHttpRequest.prototype.open = function(m, url) {
-              if (typeof url === 'string' && (url.includes('poki.com') || url.includes('StreamingAssets'))) {
-                  let targetUrl = url;
-                  if (!url.startsWith('http')) {
-                      targetUrl = "https://game-cdn.poki.com/en/g/my-perfect-hotel/" + url.replace('./', '');
-                  }
-                  url = PROXY_URL + encodeURIComponent(targetUrl);
+              if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+                  const parts = url.split('StreamingAssets');
+                  url = "./StreamingAssets" + parts[parts.length - 1];
               }
               return oxhr.apply(this, arguments);
           };
 
-          // 2. The Domain Lie (Keeping the internal C# logic happy)
-          try {
-              Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
-              Object.defineProperty(document, 'domain', { get: () => "poki.com" });
-          } catch(e) {}
+          // Maintain the "Poki" identity for internal sitelocks
+          Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
+          Object.defineProperty(document, 'domain', { get: () => "poki.com" });
       })();
 
-      // 3. Poki SDK Mock
       window.initPokiBridge = function() { return true; };
       window.PokiSDK = new Proxy({}, { get: () => function() { return Promise.resolve(true); } });
     </script>
   </head>
   <body>
+    <div id="debug-console">Loading Local Assets...</div>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
@@ -73,7 +62,9 @@
         productName: "My Hotel",
         productVersion: "1.0.3"
       };
-      createUnityInstance(document.querySelector("#unity-canvas"), config);
+      createUnityInstance(document.querySelector("#unity-canvas"), config).then(() => {
+          document.getElementById("debug-console").innerHTML += "<br><span style='color:cyan'>ENGINE FULLY INITIALIZED</span>";
+      });
     </script>
   </body>
 </html>
