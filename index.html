@@ -7,47 +7,36 @@
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
       #unity-canvas { width: 100%; height: 100%; background: #00C565; }
-      #debug-console { position: absolute; top: 10px; left: 10px; color: #00FF00; background: rgba(0,0,0,0.85); padding: 10px; z-index: 9999; font-family: monospace; font-size: 11px; pointer-events: none; max-width: 90vw; word-wrap: break-word; }
     </style>
     
     <script>
-      // 1. Crash Catchers
-      window.onerror = function(m) { document.getElementById("debug-console").innerHTML += "<br><span style='color:red'>ERR: " + m + "</span>"; };
-      window.onunhandledrejection = function(e) { document.getElementById("debug-console").innerHTML += "<br><span style='color:orange'>PROMISE: " + (e.reason||"Unknown") + "</span>"; };
+      // 1. The Domain Spoofer (Lying to the C++ Engine)
+      try { Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" }); } catch(e) {}
+      try { Object.defineProperty(document, 'domain', { get: () => "poki.com" }); } catch(e) {}
+      try { Object.defineProperty(document, 'referrer', { get: () => "https://poki.com/" }); } catch(e) {}
 
-      // 2. The Network Sniffer (Wiretapping background downloads)
-      const originalFetch = window.fetch;
-      window.fetch = async function(...args) {
-          var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : 'unknown');
-          // Ignore the core files we already know about to avoid spam
-          if(!url.includes('.data') && !url.includes('.wasm') && !url.includes('.js')) { 
-              document.getElementById("debug-console").innerHTML += "<br><span style='color:lightblue'>FETCHING: " + url.substring(url.lastIndexOf('/')+1) + "</span>";
-          }
-          return originalFetch.apply(this, args);
+      // 2. DOM Lockdown (Catching eval redirects)
+      const originalEval = window.eval;
+      window.eval = function(code) {
+          if (typeof code === 'string' && code.includes('window.location')) return;
+          return originalEval(code);
       };
 
-      const originalXHR = window.XMLHttpRequest.prototype.open;
-      window.XMLHttpRequest.prototype.open = function(method, url) {
-          if(typeof url === 'string' && !url.includes('.data') && !url.includes('.wasm') && !url.includes('.js')) {
-              document.getElementById("debug-console").innerHTML += "<br><span style='color:lightblue'>XHR REQ: " + url.substring(url.lastIndexOf('/')+1) + "</span>";
-          }
-          return originalXHR.apply(this, arguments);
-      };
-
-      // 3. Poki Mock (Kept active just in case)
+      // 3. Silent God-Mode Poki Mock
       window.initPokiBridge = function() { return true; };
-      window.PokiSDK = new Proxy({}, { get: function(t, p) { if (p === 'then') return undefined; return function() { return Promise.resolve(true); }; } });
+      window.PokiSDK = new Proxy({}, { 
+          get: function(t, p) { 
+              if (p === 'then') return undefined; 
+              return function() { return Promise.resolve(true); }; 
+          } 
+      });
     </script>
   </head>
   <body>
-    <div id="debug-console">Booting Network Sniffer...</div>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     
     <script>
-      var debug = document.getElementById("debug-console");
-      function log(msg) { debug.innerHTML += "<br>" + msg; }
-
       var config = {
         dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
         frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
@@ -55,14 +44,11 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "master",
         productName: "My Hotel",
-        productVersion: "1.0.3",
-        cacheControl: function (url) { return "no-store"; }, 
+        productVersion: "1.0.3"
       };
 
-      createUnityInstance(document.querySelector("#unity-canvas"), config, function(p) {
-          if (p === 1 && !window.loggedData) { log("Core chunks loaded."); window.loggedData = true; }
-      }).then(function(u) {
-          log("<span style='color:cyan'>WASM Instance Loaded!</span>");
+      createUnityInstance(document.querySelector("#unity-canvas"), config).catch(function(m) {
+          console.error("Engine Crash: " + m);
       });
     </script>
   </body>
