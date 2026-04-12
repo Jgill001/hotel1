@@ -3,30 +3,24 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - Fixed UI & Ads</title>
+    <title>My Perfect Hotel - Ad Fix</title>
     <style>
-      /* The dvh fix ensures the bottom of the game isn't cut off by mobile browser bars */
-      body { 
-        padding: 0; margin: 0; 
-        background-color: #00C565; 
-        overflow: hidden; 
-        width: 100vw; 
-        height: 100dvh; 
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-      
-      #unity-canvas { 
-        width: 100%; 
-        height: 100%; 
-        background: #00C565;
-        /* Ensures the canvas respects mobile aspect ratios */
-        max-height: 100dvh;
-        object-fit: contain;
-      }
+      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; position: fixed; }
+      #unity-canvas { width: 100vw !important; height: 100vh !important; background: #00C565; display: block; }
     </style>
     <script>
+      // 1. FORCED RESIZE (Keeping your successful height fix)
+      function fixCanvasSize() {
+          const canvas = document.querySelector("#unity-canvas");
+          if (canvas) {
+              canvas.style.height = window.innerHeight + "px";
+              canvas.style.width = window.innerWidth + "px";
+          }
+      }
+      window.addEventListener('resize', fixCanvasSize);
+      window.addEventListener('orientationchange', fixCanvasSize);
+
+      // 2. THE TRAFFIC REDIRECTOR
       (function() {
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
@@ -37,45 +31,60 @@
               }
               return originalFetch(input, init);
           };
-          
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
       })();
 
-      // --- ADVANCED AD BYPASS LOGIC ---
-      window.rewardedBreak = function() {
-          console.log("Rewarding player instantly...");
-          // We trigger gameplayStop then Start to "unstick" the Unity engine
-          if (window.PokiSDK && window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
-          
-          return new Promise((resolve) => {
-              setTimeout(() => { 
-                  if (window.PokiSDK && window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
-                  resolve(true); 
-              }, 1000); // 1 second delay is the sweet spot for mobile stability
-          });
-      };
-
-      window.commercialBreak = function() {
-          return new Promise((resolve) => {
-              setTimeout(() => { resolve(false); }, 500);
-          });
-      };
-
-      window.initPokiBridge = function() { return true; };
+      // 3. THE "FORCE-WAKE" AD BYPASS
       window.PokiSDK = {
           init: function() { return Promise.resolve(); },
-          commercialBreak: window.commercialBreak,
-          rewardedBreak: window.rewardedBreak,
-          gameplayStart: function() { console.log("SDK: Gameplay Resumed"); },
-          gameplayStop: function() { console.log("SDK: Gameplay Paused"); },
+          
+          // Interstitial Ads
+          commercialBreak: function() {
+              console.log("SDK: Skipping Interstitial");
+              if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
+              return new Promise((resolve) => {
+                  setTimeout(() => {
+                      if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
+                      resolve(false);
+                  }, 400);
+              });
+          },
+
+          // Reward Ads (The one causing the freeze)
+          rewardedBreak: function() {
+              console.log("SDK: Rewarded Break - Jumpstarting Engine...");
+              
+              // We manually call Stop to sync with the game's expectation
+              if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
+              
+              return new Promise((resolve) => {
+                  // Short delay to let the 'Stop' state register
+                  setTimeout(() => {
+                      console.log("SDK: Sending Resume & Reward Signals");
+                      
+                      // We manually call Start to force the engine to wake up
+                      if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
+                      
+                      // Tell the game the ad was a success
+                      resolve(true); 
+                  }, 750); 
+              });
+          },
+
+          gameplayStart: function() { console.log("Engine: Resumed"); },
+          gameplayStop: function() { console.log("Engine: Paused"); },
           gameLoadingFinished: function() {},
           gameInteractive: function() {},
           setDebug: function() {}
       };
+
+      // Legacy Global Hooks
+      window.rewardedBreak = window.PokiSDK.rewardedBreak;
+      window.commercialBreak = window.PokiSDK.commercialBreak;
     </script>
   </head>
-  <body>
+  <body onload="fixCanvasSize()">
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
@@ -87,6 +96,8 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3"
+      }).then(() => {
+          setTimeout(fixCanvasSize, 1000);
       });
     </script>
   </body>
