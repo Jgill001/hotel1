@@ -3,24 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - Ad Fix</title>
+    <title>My Perfect Hotel - Stabilized</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; position: fixed; }
       #unity-canvas { width: 100vw !important; height: 100vh !important; background: #00C565; display: block; }
     </style>
     <script>
-      // 1. FORCED RESIZE (Keeping your successful height fix)
-      function fixCanvasSize() {
-          const canvas = document.querySelector("#unity-canvas");
-          if (canvas) {
-              canvas.style.height = window.innerHeight + "px";
-              canvas.style.width = window.innerWidth + "px";
-          }
-      }
-      window.addEventListener('resize', fixCanvasSize);
-      window.addEventListener('orientationchange', fixCanvasSize);
-
-      // 2. THE TRAFFIC REDIRECTOR
+      // 1. The Traffic Redirector (Crucial for loading files)
       (function() {
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
@@ -31,64 +20,74 @@
               }
               return originalFetch(input, init);
           };
+          const oxhr = window.XMLHttpRequest.prototype.open;
+          window.XMLHttpRequest.prototype.open = function(m, url) {
+              if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+                  const parts = url.split('StreamingAssets');
+                  url = "./StreamingAssets" + parts[parts.length - 1];
+              }
+              return oxhr.apply(this, arguments);
+          };
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
       })();
 
-      // 3. THE "FORCE-WAKE" AD BYPASS
+      // 2. Define SDK functions separately to prevent the "Blank Screen" crash
+      const mockGameplayStart = function() { console.log("SDK: Gameplay Start"); };
+      const mockGameplayStop = function() { console.log("SDK: Gameplay Stop"); };
+      
+      const mockRewardedBreak = function() {
+          console.log("SDK: Bypassing Reward Ad...");
+          return new Promise((resolve) => {
+              // We use a clean 1-second delay. No manual jumpstarting.
+              // This lets the game's internal code handle its own state.
+              setTimeout(() => {
+                  console.log("SDK: Resolving Reward Success");
+                  resolve(true);
+              }, 1000);
+          });
+      };
+
+      const mockCommercialBreak = function() {
+          return new Promise((resolve) => {
+              setTimeout(() => { resolve(false); }, 500);
+          });
+      };
+
+      // 3. Assemble the SDK
       window.PokiSDK = {
           init: function() { return Promise.resolve(); },
-          
-          // Interstitial Ads
-          commercialBreak: function() {
-              console.log("SDK: Skipping Interstitial");
-              if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
-              return new Promise((resolve) => {
-                  setTimeout(() => {
-                      if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
-                      resolve(false);
-                  }, 400);
-              });
-          },
-
-          // Reward Ads (The one causing the freeze)
-          rewardedBreak: function() {
-              console.log("SDK: Rewarded Break - Jumpstarting Engine...");
-              
-              // We manually call Stop to sync with the game's expectation
-              if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
-              
-              return new Promise((resolve) => {
-                  // Short delay to let the 'Stop' state register
-                  setTimeout(() => {
-                      console.log("SDK: Sending Resume & Reward Signals");
-                      
-                      // We manually call Start to force the engine to wake up
-                      if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
-                      
-                      // Tell the game the ad was a success
-                      resolve(true); 
-                  }, 750); 
-              });
-          },
-
-          gameplayStart: function() { console.log("Engine: Resumed"); },
-          gameplayStop: function() { console.log("Engine: Paused"); },
+          commercialBreak: mockCommercialBreak,
+          rewardedBreak: mockRewardedBreak,
+          gameplayStart: mockGameplayStart,
+          gameplayStop: mockGameplayStop,
           gameLoadingFinished: function() {},
           gameInteractive: function() {},
           setDebug: function() {}
       };
 
-      // Legacy Global Hooks
-      window.rewardedBreak = window.PokiSDK.rewardedBreak;
-      window.commercialBreak = window.PokiSDK.commercialBreak;
+      // Global hooks for legacy WASM
+      window.rewardedBreak = mockRewardedBreak;
+      window.commercialBreak = mockCommercialBreak;
+      window.initPokiBridge = function() { return true; };
+
+      // 4. UI Fix
+      function fixCanvasSize() {
+          const canvas = document.querySelector("#unity-canvas");
+          if (canvas) {
+              canvas.style.height = window.innerHeight + "px";
+              canvas.style.width = window.innerWidth + "px";
+          }
+      }
+      window.addEventListener('resize', fixCanvasSize);
+      window.addEventListener('orientationchange', fixCanvasSize);
     </script>
   </head>
   <body onload="fixCanvasSize()">
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
-      createUnityInstance(document.querySelector("#unity-canvas"), {
+      var config = {
         dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
         frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
         codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
@@ -96,8 +95,14 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3"
-      }).then(() => {
+      };
+
+      // Start the game
+      createUnityInstance(document.querySelector("#unity-canvas"), config).then((unityInstance) => {
+          console.log("Unity Instance Created Successfully");
           setTimeout(fixCanvasSize, 1000);
+      }).catch((err) => {
+          console.error("Unity Load Error:", err);
       });
     </script>
   </body>
