@@ -3,20 +3,41 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Perfect Hotel - Private Server</title>
+    <title>My Perfect Hotel - Stealth Tracker</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
       #unity-canvas { width: 100%; height: 100%; background: #00C565; }
+      
+      /* The Stealth Button */
+      #stealth-btn {
+        position: absolute; top: 15px; right: 15px; z-index: 9999;
+        background: rgba(0, 0, 0, 0.5); color: #00FF00; border: 1px solid #00FF00;
+        padding: 8px 12px; font-family: monospace; font-size: 12px; font-weight: bold;
+        border-radius: 4px; cursor: pointer; backdrop-filter: blur(2px);
+      }
     </style>
     
     <script>
       (function() {
+          window.missingFiles = new Set();
+          
+          // 1. Silent Local Traffic Diverter & File Tracker
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
               if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
                   const parts = url.split('StreamingAssets');
-                  return originalFetch("./StreamingAssets" + parts[parts.length - 1], init);
+                  const relativePath = parts[parts.length - 1];
+                  const localPath = "./StreamingAssets" + relativePath;
+                  
+                  // Silently record any requested bundle, hash, or json
+                  if (relativePath.includes('.bundle') || relativePath.includes('.hash') || relativePath.includes('.json') || relativePath.includes('.prefab')) {
+                      // Format perfectly for our Colab Python list
+                      const colabPath = "StreamingAssets" + relativePath;
+                      window.missingFiles.add('"' + colabPath + '"');
+                  }
+                  
+                  return originalFetch(localPath, init);
               }
               return originalFetch(input, init);
           };
@@ -30,21 +51,55 @@
               return oxhr.apply(this, arguments);
           };
 
+          // 2. Sitelock Spoofing
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
       })();
 
+      // 3. Bulletproof Poki SDK Mock
       window.initPokiBridge = function() { return true; };
-      window.PokiSDK = new Proxy({}, { 
-          get: (t, p) => {
-              if (p === 'then') return undefined;
-              return () => Promise.resolve(true);
-          } 
-      });
+      window.PokiSDK = {
+          init: function() { return Promise.resolve(); },
+          setDebug: function() {},
+          gameLoadingStart: function() {},
+          gameLoadingProgress: function() {},
+          gameLoadingFinished: function() {},
+          gameInteractive: function() {},
+          commercialBreak: function() { return Promise.resolve(false); }, 
+          rewardedBreak: function() { return Promise.resolve(true); },    
+          gameplayStart: function() {},
+          gameplayStop: function() {}
+      };
+      
+      // The Copy Function for Mobile
+      window.exportLog = function() {
+          const textToCopy = Array.from(window.missingFiles).join(',\n');
+          
+          // Mobile-safe copy hack
+          const textArea = document.createElement("textarea");
+          textArea.value = textToCopy;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          
+          const btn = document.getElementById("stealth-btn");
+          btn.innerText = "LOG COPIED!";
+          btn.style.background = "#00C565";
+          btn.style.color = "#000";
+          
+          setTimeout(() => {
+              btn.innerText = "💾 COPY LOG";
+              btn.style.background = "rgba(0, 0, 0, 0.5)";
+              btn.style.color = "#00FF00";
+          }, 3000);
+      };
     </script>
   </head>
   <body>
+    <button id="stealth-btn" onclick="exportLog()">💾 COPY LOG</button>
     <canvas id="unity-canvas"></canvas>
+    
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
       var config = {
@@ -60,8 +115,10 @@
       const canvas = document.querySelector("#unity-canvas");
       canvas.addEventListener('touchstart', () => {
           if (window.AudioContext || window.webkitAudioContext) {
-              let ctx = new (window.AudioContext || window.webkitAudioContext)();
-              if (ctx.state === 'suspended') ctx.resume();
+              try {
+                  let ctx = new (window.AudioContext || window.webkitAudioContext)();
+                  if (ctx.state === 'suspended') ctx.resume();
+              } catch (e) {}
           }
       }, { once: true });
 
