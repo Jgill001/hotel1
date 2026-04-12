@@ -3,23 +3,13 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Perfect Hotel - Ad-Free Rewards</title>
+    <title>My Perfect Hotel - Ad Free</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
       #unity-canvas { width: 100%; height: 100%; background: #00C565; }
-      #stealth-btn {
-        position: absolute; top: 15px; right: 15px; z-index: 9999;
-        background: rgba(0, 0, 0, 0.6); color: #00FF00; border: 1px solid #00FF00;
-        padding: 8px 12px; font-family: monospace; font-size: 12px; font-weight: bold;
-        border-radius: 4px; cursor: pointer;
-      }
     </style>
     <script>
       (function() {
-          window.debugLog = [];
-          const log = (msg) => { window.debugLog.push(msg); console.log(msg); };
-
-          // 1. Traffic Diverter
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -29,72 +19,48 @@
               }
               return originalFetch(input, init);
           };
-
-          // 2. Audio Crash Protection (Crucial for Rewards)
-          // The game freezes if the "button click" sound fails during an ad call.
-          const ogError = console.error;
-          console.error = function(...args) {
-              const msg = args.join(' ');
-              if (msg.includes("FSB failed") || msg.includes("AudioContext") || msg.includes("Pointer_stringify")) {
-                  return; // Silently ignore to keep the game thread alive
+          const oxhr = window.XMLHttpRequest.prototype.open;
+          window.XMLHttpRequest.prototype.open = function(m, url) {
+              if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+                  const parts = url.split('StreamingAssets');
+                  url = "./StreamingAssets" + parts[parts.length - 1];
               }
-              log("[ERROR] " + msg);
-              ogError.apply(console, args);
+              return oxhr.apply(this, arguments);
           };
-
-          // 3. The Instant Reward Bypass
-          window.rewardedBreak = function() {
-              log("[SDK] Rewarded Break Triggered - Bypassing Ad...");
-              return new Promise((resolve) => {
-                  // We use a small delay so the Unity Engine doesn't "choke" 
-                  // on the instant state change.
-                  setTimeout(() => {
-                      log("[SDK] Reward Granted! (No ad shown)");
-                      resolve(true); // 'true' tells the game: "Ad watched, give him the money!"
-                  }, 400); 
-              });
-          };
-
-          window.commercialBreak = function() {
-              log("[SDK] Skipping Interstitial Ad...");
-              return new Promise((resolve) => {
-                  setTimeout(() => { resolve(false); }, 300);
-              });
-          };
-
-          window.initPokiBridge = function() { return true; };
-
-          window.PokiSDK = {
-              init: function() { return Promise.resolve(); },
-              commercialBreak: window.commercialBreak,
-              rewardedBreak: window.rewardedBreak,
-              gameplayStart: function() {},
-              gameplayStop: function() {},
-              gameLoadingFinished: function() {},
-              setDebug: function() {}
-          };
-
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
       })();
 
-      window.exportLog = function() {
-          const textArea = document.createElement("textarea");
-          textArea.value = window.debugLog.join('\n');
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textArea);
-          alert("Log Copied!");
+      // Instant Reward Logic
+      window.rewardedBreak = function() {
+          console.log("Bypassing Reward Ad...");
+          return new Promise((resolve) => {
+              setTimeout(() => { resolve(true); }, 500); 
+          });
+      };
+      window.commercialBreak = function() {
+          return new Promise((resolve) => {
+              setTimeout(() => { resolve(false); }, 300);
+          });
+      };
+
+      window.initPokiBridge = function() { return true; };
+      window.PokiSDK = {
+          init: function() { return Promise.resolve(); },
+          commercialBreak: window.commercialBreak,
+          rewardedBreak: window.rewardedBreak,
+          gameplayStart: function() {},
+          gameplayStop: function() {},
+          gameLoadingFinished: function() {},
+          setDebug: function() {}
       };
     </script>
   </head>
   <body>
-    <button id="stealth-btn" onclick="exportLog()">💾 COPY LOG</button>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
-      var config = {
+      createUnityInstance(document.querySelector("#unity-canvas"), {
         dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
         frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
         codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
@@ -102,8 +68,7 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3"
-      };
-      createUnityInstance(document.querySelector("#unity-canvas"), config);
+      });
     </script>
   </body>
 </html>
