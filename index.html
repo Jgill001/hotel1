@@ -2,11 +2,29 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Perfect Hotel - Ad Free</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>My Perfect Hotel - Fixed UI & Ads</title>
     <style>
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; }
-      #unity-canvas { width: 100%; height: 100%; background: #00C565; }
+      /* The dvh fix ensures the bottom of the game isn't cut off by mobile browser bars */
+      body { 
+        padding: 0; margin: 0; 
+        background-color: #00C565; 
+        overflow: hidden; 
+        width: 100vw; 
+        height: 100dvh; 
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      
+      #unity-canvas { 
+        width: 100%; 
+        height: 100%; 
+        background: #00C565;
+        /* Ensures the canvas respects mobile aspect ratios */
+        max-height: 100dvh;
+        object-fit: contain;
+      }
     </style>
     <script>
       (function() {
@@ -19,28 +37,28 @@
               }
               return originalFetch(input, init);
           };
-          const oxhr = window.XMLHttpRequest.prototype.open;
-          window.XMLHttpRequest.prototype.open = function(m, url) {
-              if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
-                  const parts = url.split('StreamingAssets');
-                  url = "./StreamingAssets" + parts[parts.length - 1];
-              }
-              return oxhr.apply(this, arguments);
-          };
+          
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
       })();
 
-      // Instant Reward Logic
+      // --- ADVANCED AD BYPASS LOGIC ---
       window.rewardedBreak = function() {
-          console.log("Bypassing Reward Ad...");
+          console.log("Rewarding player instantly...");
+          // We trigger gameplayStop then Start to "unstick" the Unity engine
+          if (window.PokiSDK && window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
+          
           return new Promise((resolve) => {
-              setTimeout(() => { resolve(true); }, 500); 
+              setTimeout(() => { 
+                  if (window.PokiSDK && window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
+                  resolve(true); 
+              }, 1000); // 1 second delay is the sweet spot for mobile stability
           });
       };
+
       window.commercialBreak = function() {
           return new Promise((resolve) => {
-              setTimeout(() => { resolve(false); }, 300);
+              setTimeout(() => { resolve(false); }, 500);
           });
       };
 
@@ -49,9 +67,10 @@
           init: function() { return Promise.resolve(); },
           commercialBreak: window.commercialBreak,
           rewardedBreak: window.rewardedBreak,
-          gameplayStart: function() {},
-          gameplayStop: function() {},
+          gameplayStart: function() { console.log("SDK: Gameplay Resumed"); },
+          gameplayStop: function() { console.log("SDK: Gameplay Paused"); },
           gameLoadingFinished: function() {},
+          gameInteractive: function() {},
           setDebug: function() {}
       };
     </script>
