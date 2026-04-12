@@ -3,94 +3,72 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - Diagnostic Mode</title>
+    <title>My Perfect Hotel - Ultimate Fix</title>
     <style>
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100vh; position: fixed; }
-      #unity-canvas { width: 100vw !important; height: 100vh !important; background: #00C565; display: block; }
-      
-      /* Subtle Log Button */
-      #log-btn {
-        position: absolute; top: 10px; right: 10px; z-index: 9999;
-        background: rgba(0, 0, 0, 0.4); color: #00FF00; border: 1px solid #00FF00;
-        padding: 6px 10px; font-family: monospace; font-size: 11px;
-        border-radius: 4px; cursor: pointer; backdrop-filter: blur(2px);
-      }
+      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
+      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; }
+      #log-btn { position: absolute; top: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.4); color: #00FF00; border: 1px solid #00FF00; padding: 8px; border-radius: 4px; font-family: monospace; }
     </style>
     <script>
       (function() {
           window.heistLog = [];
-          const track = (msg) => { 
-              const time = new Date().toLocaleTimeString().split(' ')[0];
-              window.heistLog.push(`[${time}] ${msg}`); 
-              console.log(msg); 
+          const track = (msg) => { window.heistLog.push(`${new Date().toLocaleTimeString()} ${msg}`); console.log(msg); };
+
+          // 1. POLYFILL: Fixes the 'Pointer_stringify' crash
+          window.Pointer_stringify = function(ptr) {
+              if (window.UTF8ToString) return window.UTF8ToString(ptr);
+              return "UnityLegacyString";
           };
 
-          // 1. Capture ALL Errors (Hidden or otherwise)
-          window.onerror = function(message, source, lineno, colno, error) {
-              track(`!!! JS ERROR: ${message} at ${lineno}:${colno}`);
-          };
-
-          // 2. Traffic Diverter
+          // 2. Traffic Redirection
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
               if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
                   const parts = url.split('StreamingAssets');
-                  track(`NET: Requesting ${parts[parts.length - 1]}`);
                   return originalFetch("./StreamingAssets" + parts[parts.length - 1], init);
               }
               return originalFetch(input, init);
           };
 
-          // 3. The "Black Box" SDK
+          // 3. The "Force Resume" SDK
           window.PokiSDK = {
-              init: function() { 
-                  track("SDK: init() called");
-                  return Promise.resolve(); 
+              init: () => Promise.resolve(),
+              commercialBreak: () => {
+                  if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
+                  return new Promise(r => setTimeout(() => { 
+                      if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
+                      r(false); 
+                  }, 500));
               },
-              commercialBreak: function() {
-                  track("SDK: commercialBreak() requested");
+              rewardedBreak: () => {
+                  track("SDK: Rewarded Break REQUESTED");
+                  // Manually tell the engine to pause
+                  if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
+                  
                   return new Promise((resolve) => {
-                      setTimeout(() => { track("SDK: commercialBreak RESOLVED"); resolve(false); }, 500);
+                      setTimeout(() => {
+                          track("SDK: Forcing Gameplay Resume & Resolving Reward");
+                          // MANUALLY tell the engine to wake up before resolving
+                          if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
+                          resolve(true); 
+                      }, 1200); // Slightly longer delay to let UI bundles settle
                   });
               },
-              rewardedBreak: function() {
-                  track("SDK: rewardedBreak() REQUESTED");
-                  return new Promise((resolve) => {
-                      try {
-                          setTimeout(() => {
-                              track("SDK: rewardedBreak RESOLVING TRUE (Reward Granted)");
-                              resolve(true); 
-                          }, 1000); 
-                      } catch(e) {
-                          track(`SDK: CRITICAL FAIL in rewardedBreak: ${e.message}`);
-                      }
-                  });
-              },
-              gameplayStart: function() { track("SDK: gameplayStart() fired"); },
-              gameplayStop: function() { track("SDK: gameplayStop() fired"); },
-              gameLoadingFinished: function() { track("SDK: loadingFinished()"); },
-              gameInteractive: function() { track("SDK: gameInteractive()"); },
-              setDebug: function(val) { track(`SDK: setDebug(${val})`); }
+              gameplayStart: () => { track("SDK: gameplayStart() fired"); },
+              gameplayStop: () => { track("SDK: gameplayStop() fired"); },
+              gameLoadingFinished: () => {},
+              gameInteractive: () => {},
+              setDebug: () => {}
           };
 
-          // Global Legacy Hooks
           window.rewardedBreak = window.PokiSDK.rewardedBreak;
           window.commercialBreak = window.PokiSDK.commercialBreak;
-          window.initPokiBridge = function() { track("SDK: Bridge Init"); return true; };
+          window.initPokiBridge = () => true;
 
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
       })();
-
-      function fixCanvasSize() {
-          const canvas = document.querySelector("#unity-canvas");
-          if (canvas) {
-              canvas.style.height = window.innerHeight + "px";
-              canvas.style.width = window.innerWidth + "px";
-          }
-      }
-      window.addEventListener('resize', fixCanvasSize);
 
       window.copyHeistLog = function() {
           const textArea = document.createElement("textarea");
@@ -99,12 +77,11 @@
           textArea.select();
           document.execCommand('copy');
           document.body.removeChild(textArea);
-          document.getElementById("log-btn").innerText = "COPIED!";
-          setTimeout(() => { document.getElementById("log-btn").innerText = "💾 LOG"; }, 2000);
+          alert("Log Copied");
       };
     </script>
   </head>
-  <body onload="fixCanvasSize()">
+  <body>
     <button id="log-btn" onclick="copyHeistLog()">💾 LOG</button>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
@@ -117,8 +94,6 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3"
-      }).then(() => {
-          setTimeout(fixCanvasSize, 1000);
       });
     </script>
   </body>
