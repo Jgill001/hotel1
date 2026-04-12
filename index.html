@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - Ultimate Fix</title>
+    <title>My Perfect Hotel - Stable Bypass</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; }
@@ -14,13 +14,10 @@
           window.heistLog = [];
           const track = (msg) => { window.heistLog.push(`${new Date().toLocaleTimeString()} ${msg}`); console.log(msg); };
 
-          // 1. POLYFILL: Fixes the 'Pointer_stringify' crash
-          window.Pointer_stringify = function(ptr) {
-              if (window.UTF8ToString) return window.UTF8ToString(ptr);
-              return "UnityLegacyString";
-          };
+          // Polyfill for Unity internal string handling
+          window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
 
-          // 2. Traffic Redirection
+          // Traffic Redirector
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -31,30 +28,36 @@
               return originalFetch(input, init);
           };
 
-          // 3. The "Force Resume" SDK
+          // --- THE STABLE BYPASS ---
           window.PokiSDK = {
               init: () => Promise.resolve(),
-              commercialBreak: () => {
-                  if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
-                  return new Promise(r => setTimeout(() => { 
-                      if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
-                      r(false); 
-                  }, 500));
-              },
-              rewardedBreak: () => {
+              commercialBreak: () => Promise.resolve(false),
+              
+              rewardedBreak: function() {
                   track("SDK: Rewarded Break REQUESTED");
-                  // Manually tell the engine to pause
-                  if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
                   
                   return new Promise((resolve) => {
-                      setTimeout(() => {
-                          track("SDK: Forcing Gameplay Resume & Resolving Reward");
-                          // MANUALLY tell the engine to wake up before resolving
-                          if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
-                          resolve(true); 
-                      }, 1200); // Slightly longer delay to let UI bundles settle
+                      // 1. Tell the engine we are stopping
+                      if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
+                      
+                      // 2. Wait for two animation frames (The "Blackout" fix)
+                      // This forces Unity to acknowledge the pause before we resume.
+                      requestAnimationFrame(() => {
+                          requestAnimationFrame(() => {
+                              setTimeout(() => {
+                                  track("SDK: Releasing Engine & Granting Reward");
+                                  
+                                  // 3. Resume gameplay manually
+                                  if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
+                                  
+                                  // 4. Resolve the reward
+                                  resolve(true); 
+                              }, 1500); // 1.5 seconds is the "Golden Ratio" for this game
+                          });
+                      });
                   });
               },
+              
               gameplayStart: () => { track("SDK: gameplayStart() fired"); },
               gameplayStop: () => { track("SDK: gameplayStop() fired"); },
               gameLoadingFinished: () => {},
@@ -77,7 +80,6 @@
           textArea.select();
           document.execCommand('copy');
           document.body.removeChild(textArea);
-          alert("Log Copied");
       };
     </script>
   </head>
