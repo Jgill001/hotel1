@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - Stable Bypass</title>
+    <title>My Perfect Hotel - The Real Fix</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; }
@@ -14,10 +14,8 @@
           window.heistLog = [];
           const track = (msg) => { window.heistLog.push(`${new Date().toLocaleTimeString()} ${msg}`); console.log(msg); };
 
-          // Polyfill for Unity internal string handling
           window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
 
-          // Traffic Redirector
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -28,38 +26,48 @@
               return originalFetch(input, init);
           };
 
-          // --- THE STABLE BYPASS ---
+          // --- THE PROPER SDK MOCK ---
           window.PokiSDK = {
               init: () => Promise.resolve(),
-              commercialBreak: () => Promise.resolve(false),
               
-              rewardedBreak: function() {
-                  track("SDK: Rewarded Break REQUESTED");
-                  
+              // Interstitials
+              commercialBreak: function(pauseCallback) {
+                  track("SDK: Commercial Break Requested");
+                  // Execute the game's internal pause function if it provided one
+                  if (typeof pauseCallback === 'function') {
+                      track("SDK: Executing Game's Pause Callback");
+                      try { pauseCallback(); } catch(e) {}
+                  }
                   return new Promise((resolve) => {
-                      // 1. Tell the engine we are stopping
-                      if (window.PokiSDK.gameplayStop) window.PokiSDK.gameplayStop();
-                      
-                      // 2. Wait for two animation frames (The "Blackout" fix)
-                      // This forces Unity to acknowledge the pause before we resume.
-                      requestAnimationFrame(() => {
-                          requestAnimationFrame(() => {
-                              setTimeout(() => {
-                                  track("SDK: Releasing Engine & Granting Reward");
-                                  
-                                  // 3. Resume gameplay manually
-                                  if (window.PokiSDK.gameplayStart) window.PokiSDK.gameplayStart();
-                                  
-                                  // 4. Resolve the reward
-                                  resolve(true); 
-                              }, 1500); // 1.5 seconds is the "Golden Ratio" for this game
-                          });
-                      });
+                      setTimeout(() => { resolve(false); }, 500);
                   });
               },
               
-              gameplayStart: () => { track("SDK: gameplayStart() fired"); },
-              gameplayStop: () => { track("SDK: gameplayStop() fired"); },
+              // Rewards
+              rewardedBreak: function(pauseCallback) {
+                  track("SDK: Rewarded Break REQUESTED");
+                  
+                  // CRITICAL FIX: We MUST tell the game to pause using its own callback
+                  if (typeof pauseCallback === 'function') {
+                      track("SDK: Executing Game's Internal Pause Callback");
+                      try { pauseCallback(); } catch(e) { track("Pause Error: " + e); }
+                  }
+                  
+                  return new Promise((resolve) => {
+                      setTimeout(() => {
+                          track("SDK: Resolving Reward Success");
+                          
+                          // Force window focus just in case WebGL suspended its audio thread
+                          window.focus(); 
+                          
+                          resolve(true); 
+                      }, 1200);
+                  });
+              },
+              
+              // These are just telemetry hooks the game uses to talk to Poki. We just listen.
+              gameplayStart: () => { track("GAME TELLS SDK: Playing"); },
+              gameplayStop: () => { track("GAME TELLS SDK: Stopped"); },
               gameLoadingFinished: () => {},
               gameInteractive: () => {},
               setDebug: () => {}
@@ -81,9 +89,15 @@
           document.execCommand('copy');
           document.body.removeChild(textArea);
       };
+      
+      function fixCanvasSize() {
+          const canvas = document.querySelector("#unity-canvas");
+          if (canvas) { canvas.style.height = window.innerHeight + "px"; canvas.style.width = window.innerWidth + "px"; }
+      }
+      window.addEventListener('resize', fixCanvasSize);
     </script>
   </head>
-  <body>
+  <body onload="fixCanvasSize()">
     <button id="log-btn" onclick="copyHeistLog()">💾 LOG</button>
     <canvas id="unity-canvas"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
