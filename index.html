@@ -2,18 +2,34 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Hotel Pinpoint Debugger</title>
     <link rel="icon" href="data:,">
     <style>
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; font-family: monospace; }
-      #unity-canvas { width: 100vw; height: 100vh; display: block; }
+      /* Force the page to stay exactly the size of the window */
+      html, body { 
+        padding: 0; margin: 0; 
+        width: 100%; height: 100%; 
+        background-color: #00C565; 
+        overflow: hidden; 
+        position: fixed; /* Prevents accidental scrolling/zooming */
+      }
+
+      /* The Game Canvas */
+      #unity-canvas { 
+        width: 100%; height: 100%; 
+        display: block; 
+        outline: none;
+      }
+
       #debug-panel {
         position: absolute; top: 10px; left: 10px; z-index: 99999;
-        background: rgba(0, 0, 0, 0.9); color: #00FF00; padding: 10px;
-        border: 2px solid #00FF00; border-radius: 5px; width: 320px;
+        background: rgba(0, 0, 0, 0.85); color: #00FF00; padding: 10px;
+        border: 2px solid #00FF00; border-radius: 5px; width: 280px;
+        font-family: monospace; font-size: 11px;
       }
-      .btn { width: 100%; margin: 5px 0; padding: 8px; cursor: pointer; background: #222; color: #00FF00; border: 1px solid #00FF00; font-weight: bold; }
-      #net-log { background: #111; padding: 5px; height: 180px; overflow-y: auto; margin-top: 10px; border: 1px solid #333; font-size: 10px; }
+      .btn { width: 100%; margin: 5px 0; padding: 10px; cursor: pointer; background: #222; color: #00FF00; border: 1px solid #00FF00; font-weight: bold; }
+      #net-log { background: #000; padding: 5px; height: 120px; overflow-y: auto; margin-top: 10px; border: 1px solid #333; }
       .err { color: #ff4444; }
     </style>
 
@@ -29,81 +45,47 @@
           }
       }
 
-      // --- 1. FIX THE LOAD ERROR (The Bridge) ---
-      window.initPokiBridge = function() {
-          logNet("✅ initPokiBridge called by Engine");
-          return true; 
-      };
+      // 1. FIX THE LOAD ERROR
+      window.initPokiBridge = () => { logNet("✅ Bridge Init"); return true; };
 
       window.PokiSDK = {
-          init: () => { logNet("SDK: init()"); return Promise.resolve({adblocked: false}); },
-          commercialBreak: () => { logNet("SDK: commercialBreak()"); return Promise.resolve(); },
+          init: () => Promise.resolve({adblocked: false}),
+          commercialBreak: () => Promise.resolve(),
           rewardedBreak: () => {
-              logNet("💎 AD BUTTON CLICKED!", "ok");
-              return new Promise(resolve => {
-                  window._adResolve = resolve;
-                  logNet("⚠️ Waiting for manual 'Force Success'...");
-              });
+              logNet("💎 AD BUTTON CLICKED!");
+              return new Promise(resolve => { window._adResolve = resolve; });
           },
-          gameplayStart: () => logNet("SDK: gameplayStart()"),
-          gameplayStop: () => logNet("SDK: gameplayStop()"),
-          gameInteractive: () => logNet("SDK: gameInteractive()")
+          gameplayStart: () => {}, gameplayStop: () => {}, gameInteractive: () => {}
       };
-
-      // Ensure legacy calls work
       window.rewardedBreak = window.PokiSDK.rewardedBreak;
-      window.commercialBreak = window.PokiSDK.commercialBreak;
 
-      // --- 2. TRAFFIC REDIRECTOR ---
+      // 2. REDIRECTOR
       const originalFetch = window.fetch;
       window.fetch = async function(input, init) {
           let url = typeof input === 'string' ? input : (input.url ? input.url : input);
-          let redirectUrl = url;
           if (url.includes('poki') || url.includes('StreamingAssets')) {
               const parts = url.split('StreamingAssets');
-              redirectUrl = "./StreamingAssets" + parts[parts.length - 1];
+              url = "./StreamingAssets" + parts[parts.length - 1];
           }
-          try {
-              const res = await originalFetch(redirectUrl, init);
-              return res;
-          } catch(e) {
-              logNet(`Net Error: ${redirectUrl.split('/').pop()}`, 'err');
-              throw e;
-          }
+          return originalFetch(url, init);
       };
 
-      // --- 3. PINPOINT ACTIONS ---
+      // 3. ACTIONS
       function triggerSuccess() {
           if (window._adResolve) {
-              logNet("📤 Sending 'TRUE' to Unity...");
+              logNet("📤 Sending 'TRUE'...");
               window._adResolve(true);
               window._adResolve = null;
-          } else {
-              logNet("❌ No ad request active.", "err");
           }
-      }
-
-      function testInternalMessage() {
-          if (!window.uInst) return logNet("❌ Engine not ready", "err");
-          logNet("📡 Testing C# Bridge...");
-          // This tries to talk to the engine directly
-          try {
-              window.uInst.SendMessage("AdsManager", "OnRewardedFinished", "true");
-              logNet("Sent OnRewardedFinished to AdsManager");
-          } catch(e) { logNet("Bridge test failed", "err"); }
       }
     </script>
   </head>
   <body>
 
     <div id="debug-panel">
-      <b style="color:white">TERMINAL v3</b>
-      <div id="net-log">Waiting for engine...</div>
-      
-      <button class="btn" onclick="testInternalMessage()">📡 Test C# Bridge</button>
+      <b>TERMINAL v4</b>
+      <div id="net-log">Waiting...</div>
       <button class="btn" onclick="triggerSuccess()" style="border-color:#ffcc00; color:#ffcc00;">🔓 FORCE REWARD SUCCESS</button>
-      
-      <p style="font-size: 9px; color: #888;">If game loads, ad logic is now bugged for pinpointing.</p>
     </div>
 
     <canvas id="unity-canvas"></canvas>
@@ -121,7 +103,7 @@
       }).then((instance) => {
           window.uInst = instance;
           logNet("🟢 ENGINE READY.");
-      }).catch(err => logNet("❌ LOAD ERROR: " + err, "err"));
+      });
     </script>
   </body>
 </html>
