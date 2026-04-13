@@ -2,36 +2,26 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <title>My Perfect Hotel</title>
+    <title>Hotel Clean Debug</title>
     <style>
-      /* THE EXACT CSS FROM THE WORKING VERSION */
+      /* THE ORIGINAL WORKING CSS */
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
       
-      /* FLOATING BUTTONS - These do not affect the game's size/scale */
-      #debug-menu {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 999;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+      /* Tiny Debug Overlay */
+      #status-bar { 
+        position: absolute; top: 5px; left: 5px; z-index: 100; 
+        color: white; font-family: monospace; font-size: 12px; 
+        background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;
       }
-      .btn {
-        padding: 12px;
-        background: rgba(0, 0, 0, 0.8);
-        color: #00FF00;
-        border: 2px solid #00FF00;
-        cursor: pointer;
-        font-weight: bold;
-        font-family: sans-serif;
-        border-radius: 5px;
+      #force-btn {
+        position: absolute; top: 5px; right: 5px; z-index: 101;
+        padding: 10px; background: red; color: white; font-weight: bold; border: none; cursor: pointer;
       }
     </style>
 
     <script>
-      // 1. THE REDIRECTOR (Required for load)
+      // 1. THE REDIRECTOR (Fixes Green Screen)
       const originalFetch = window.fetch;
       window.fetch = async function(input, init) {
           let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -42,50 +32,40 @@
           return originalFetch(url, init);
       };
 
-      // 2. THE BRIDGE (Required to fix green screen)
-      window.initPokiBridge = () => true;
+      // 2. THE BRIDGE (Fixes TypeError)
+      window.initPokiBridge = () => { updateStatus("Bridge Init ✅"); return true; };
+
       window.PokiSDK = {
           init: () => Promise.resolve({adblocked: false}),
           commercialBreak: () => Promise.resolve(),
           rewardedBreak: () => {
+              updateStatus("💎 AD CLICKED - WAITING...");
               return new Promise(resolve => { window._adResolve = resolve; });
           },
-          gameplayStart: () => {},
-          gameplayStop: () => {}
+          gameplayStart: () => {}, gameplayStop: () => {}
       };
       window.rewardedBreak = window.PokiSDK.rewardedBreak;
 
-      // 3. THE BUTTON LOGIC
-      function addCash() {
-          if (!window.uInst) return;
-          // Shotgun blast of possible names
-          const objs = ["AdsManager", "GameManager", "CurrencyManager", "PokiUnitySDK"];
-          objs.forEach(o => {
-              try { window.uInst.SendMessage(o, "AddMoney", 100000); } catch(e){}
-              try { window.uInst.SendMessage(o, "AddCurrency", 100000); } catch(e){}
-          });
+      function updateStatus(msg) {
+          document.getElementById('status-bar').innerText = msg;
+          console.log(msg);
       }
 
-      function forceSuccess() {
+      function manualUnfreeze() {
           if (window._adResolve) {
+              updateStatus("📤 FORCING SUCCESS...");
               window._adResolve(true);
               window._adResolve = null;
-          }
-          if (window.uInst) {
-              try { window.uInst.SendMessage("AdsManager", "OnRewardedFinished", "true"); } catch(e){}
-              try { window.uInst.SendMessage("PokiUnitySDK", "adFinished", "true"); } catch(e){}
           }
       }
     </script>
   </head>
   <body>
 
-    <div id="debug-menu">
-      <button class="btn" onclick="addCash()">💰 ADD CASH</button>
-      <button class="btn" onclick="forceSuccess()" style="border-color: red; color: red;">🔓 FORCE REWARD</button>
-    </div>
+    <div id="status-bar">Loading Engine...</div>
+    <button id="force-btn" onclick="manualUnfreeze()">FORCE UNFREEZE</button>
 
-    <canvas id="unity-canvas" tabindex="1"></canvas>
+    <canvas id="unity-canvas"></canvas>
 
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
@@ -98,7 +78,7 @@
         productName: "My Hotel",
         productVersion: "1.0.3"
       }).then((instance) => {
-          window.uInst = instance;
+          updateStatus("🟢 READY");
       });
     </script>
   </body>
