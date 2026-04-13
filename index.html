@@ -3,74 +3,34 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - Debug: The Denial Test</title>
+    <title>My Perfect Hotel - External SDK Test</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
-      #log-btn { position: absolute; top: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.6); color: #00FF00; border: 1px solid #00FF00; padding: 8px; border-radius: 4px; font-family: monospace; }
     </style>
     
+    <script src="./poki-sdk.js"></script>
+
     <script>
-      (function() {
-          window.heistLog = [];
-          const track = (msg) => { window.heistLog.push(`${new Date().toLocaleTimeString()} ${msg}`); console.log(msg); };
+      // 1. Sitelock Spoofing
+      Object.defineProperty(document, 'domain', { get: () => "poki.com" });
+      Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
 
-          window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
-          Object.defineProperty(document, 'domain', { get: () => "poki.com" });
-          Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
-
-          const originalFetch = window.fetch;
-          window.fetch = function(input, init) {
-              let url = typeof input === 'string' ? input : (input.url ? input.url : input);
-              if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
-                  const parts = url.split('StreamingAssets');
-                  return originalFetch("./StreamingAssets" + parts[parts.length - 1], init);
-              }
-              return originalFetch(input, init);
-          };
-
-          // --- THE EXPERIMENT ---
-          window.PokiSDK = {
-              init: () => { track("SDK: Init"); return Promise.resolve(); },
-              commercialBreak: () => Promise.resolve(false),
-              
-              rewardedBreak: function(pauseCallback) {
-                  track("SDK: Reward Requested. Running DENIAL TEST...");
-                  if (typeof pauseCallback === 'function') {
-                      try { pauseCallback(); } catch(e) {}
-                  }
-                  
-                  return new Promise((resolve) => {
-                      setTimeout(() => {
-                          track("SDK: Resolving FALSE (Intentionally failing ad)");
-                          window.focus(); 
-                          resolve(false); // <-- We are telling the game the ad failed
-                      }, 1000); 
-                  });
-              },
-              
-              gameplayStart: () => { track("GAME: gameplayStart"); },
-              gameplayStop: () => { track("GAME: gameplayStop"); },
-              gameLoadingFinished: () => {},
-              gameInteractive: () => {},
-              setDebug: () => {}
-          };
-
-          window.rewardedBreak = window.PokiSDK.rewardedBreak;
-          window.commercialBreak = window.PokiSDK.commercialBreak;
-          window.initPokiBridge = () => true;
-      })();
-
-      window.copyHeistLog = function() {
-          const textArea = document.createElement("textarea");
-          textArea.value = window.heistLog.join('\n');
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textArea);
-          alert("Log Copied!");
+      // 2. Traffic Redirector
+      const originalFetch = window.fetch;
+      window.fetch = function(input, init) {
+          let url = typeof input === 'string' ? input : (input.url ? input.url : input);
+          if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+              const parts = url.split('StreamingAssets');
+              return originalFetch("./StreamingAssets" + parts[parts.length - 1], init);
+          }
+          return originalFetch(input, init);
       };
-      
+
+      // 3. Polyfill
+      window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
+
+      // 4. Resize Fix
       function fixCanvasSize() {
           const canvas = document.querySelector("#unity-canvas");
           if (canvas) { canvas.style.height = window.innerHeight + "px"; canvas.style.width = window.innerWidth + "px"; }
@@ -79,7 +39,6 @@
     </script>
   </head>
   <body onload="fixCanvasSize()">
-    <button id="log-btn" onclick="copyHeistLog()">💾 LOG</button>
     <canvas id="unity-canvas" tabindex="1"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
