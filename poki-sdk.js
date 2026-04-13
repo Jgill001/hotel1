@@ -3,31 +3,17 @@ window.PokiSDK = {
     commercialBreak: () => Promise.resolve(false),
     
     rewardedBreak: () => new Promise(resolve => {
-        setTimeout(() => {
-            // 1. Force the browser tab to acknowledge it has focus
-            window.focus();
-            
-            // 2. The Audio Defibrillator
-            // Aggressively hunt for Unity's WebAudio contexts and force them to wake up
-            try {
-                if (window.WEBAudio && window.WEBAudio.audioContext) {
-                    if (window.WEBAudio.audioContext.state === 'suspended') {
-                        window.WEBAudio.audioContext.resume();
-                        console.log("🛠️ Woke up suspended WEBAudio Context!");
-                    }
-                }
-                // Fallback for older Unity versions
-                if (window.audioContext && window.audioContext.state === 'suspended') {
-                    window.audioContext.resume();
-                    console.log("🛠️ Woke up suspended global AudioContext!");
-                }
-            } catch(e) {
-                console.log("Audio resume error:", e);
-            }
-
-            // 3. Grant the reward
-            resolve(true);
-        }, 1000);
+        // Step 1: Wait for the next visual frame so Unity finishes processing the button click
+        requestAnimationFrame(() => {
+            // Step 2: Add a small natural delay so we don't trigger "instant" anti-cheats
+            setTimeout(() => {
+                // Step 3: Wait for the exact moment the browser is about to draw a new frame, 
+                // which is when Unity's internal loop is completely open and listening.
+                requestAnimationFrame(() => {
+                    resolve(true);
+                });
+            }, 800); 
+        });
     }),
     
     setDebug: () => {},
