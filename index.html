@@ -2,36 +2,48 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <title>My Perfect Hotel - Debug Remote</title>
+    <title>My Perfect Hotel - Debug Center</title>
+    <link rel="icon" href="data:,">
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; }
       #unity-canvas { width: 100vw; height: 100vh; display: block; }
       
-      /* The Remote Control Panel */
       #debug-remote {
         position: absolute; top: 10px; right: 10px; z-index: 99999;
-        background: rgba(0,0,0,0.85); color: #00FF00; padding: 15px;
+        background: rgba(10, 10, 10, 0.9); color: #00FF00; padding: 15px;
         border: 2px solid #00FF00; border-radius: 8px; font-family: monospace;
-        width: 250px; box-shadow: 0 0 15px rgba(0,255,0,0.3);
+        width: 260px; box-shadow: 0 0 20px rgba(0,0,0,0.5);
       }
       .debug-btn {
-        width: 100%; margin-top: 10px; padding: 8px; cursor: pointer;
+        width: 100%; margin-top: 8px; padding: 10px; cursor: pointer;
         background: #222; color: #00FF00; border: 1px solid #00FF00;
-        font-weight: bold; text-transform: uppercase;
+        font-weight: bold; font-size: 11px;
       }
       .debug-btn:hover { background: #00FF00; color: #000; }
-      #log-box { font-size: 10px; height: 100px; overflow-y: auto; margin-top: 10px; border-top: 1px solid #333; padding-top: 5px; }
+      #log-box { font-size: 10px; height: 120px; overflow-y: auto; margin-top: 10px; background: #000; padding: 5px; }
     </style>
 
     <script>
+      // 1. RE-ADD THE TRAFFIC REDIRECTOR (Fixes Green Screen)
+      const originalFetch = window.fetch;
+      window.fetch = async function(input, init) {
+          let url = typeof input === 'string' ? input : (input.url ? input.url : input);
+          if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+              const parts = url.split('StreamingAssets');
+              return originalFetch("./StreamingAssets" + parts[parts.length - 1], init);
+          }
+          return originalFetch(input, init);
+      };
+
+      // 2. POKI SDK MOCK + PROMISE TRACKER
       window.PokiSDK = {
           init: () => Promise.resolve({adblocked: false}),
           commercialBreak: () => Promise.resolve(false),
           rewardedBreak: () => {
-              addLog("📡 Game requested Ad!");
+              addLog("📡 Unity: Ad Requested");
               return new Promise(resolve => {
-                  window._currentAdResolve = resolve; // Save the "Success" trigger
-                  addLog("⚠️ Waiting for Resolve...");
+                  window._currentAdResolve = resolve;
+                  addLog("⚠️ Ad Active... Waiting for Success.");
               });
           }
       };
@@ -39,47 +51,48 @@
 
       function addLog(msg) {
           const lb = document.getElementById('log-box');
-          if (lb) { lb.innerHTML += `<div>${msg}</div>`; lb.scrollTop = lb.scrollHeight; }
+          if (lb) { lb.innerHTML += `<div style="margin-bottom:4px;">> ${msg}</div>`; lb.scrollTop = lb.scrollHeight; }
           console.log(msg);
       }
 
-      // --- THE BRUTE FORCE TRIGGER ---
-      // We try to find common Unity objects and force them to show the ad UI
-      function forceShowAdUI() {
-          if (!window.uInst) return addLog("❌ Game not loaded yet!");
-          addLog("🚀 Brute-forcing Ad UI...");
-          
-          const targets = [
-              {obj: "AdsManager", meth: "ShowRewarded"},
-              {obj: "PokiUnitySDK", meth: "rewardedBreak"},
-              {obj: "AdManager", meth: "ShowRewardVideo"},
-              {obj: "Bridge", meth: "ShowAd"}
-          ];
-
-          targets.forEach(t => {
-              try { window.uInst.SendMessage(t.obj, t.meth); } catch(e) {}
-          });
-      }
-
-      // --- THE MANUAL OVERRIDE ---
-      // This forces the "Success" signal into the engine
+      // --- DEBUG ACTIONS ---
+      
       function forceRewardSuccess() {
           if (window._currentAdResolve) {
-              addLog("✅ FORCING SUCCESS PAYLOAD...");
+              addLog("✅ FORCING SUCCESS...");
               window._currentAdResolve(true);
               window._currentAdResolve = null;
           } else {
-              addLog("❓ No ad is currently active.");
+              addLog("❌ No active ad found.");
           }
+      }
+
+      function hackMoney() {
+          if (!window.uInst) return addLog("❌ Game not loaded!");
+          addLog("💰 Attempting Money Injection...");
+          // This tries to call common "Add Money" functions in the C# code
+          const scripts = ["GameManager", "InventoryManager", "CurrencyManager", "PlayerManager"];
+          scripts.forEach(s => {
+              window.uInst.SendMessage(s, "AddMoney", 1000000);
+              window.uInst.SendMessage(s, "AddCurrency", 1000000);
+          });
+      }
+
+      function skipTutorial() {
+          if (!window.uInst) return;
+          addLog("⏩ Attempting Tutorial Skip...");
+          window.uInst.SendMessage("TutorialManager", "CompleteTutorial");
+          window.uInst.SendMessage("GameManager", "SkipTutorial");
       }
     </script>
   </head>
   <body>
 
     <div id="debug-remote">
-      <div style="text-align:center; border-bottom:1px solid #00FF00; padding-bottom:5px;">DEBUG REMOTE</div>
-      <button class="debug-btn" onclick="forceShowAdUI()">Try Force Open Ad</button>
-      <button class="debug-btn" onclick="forceRewardSuccess()" style="border-color: #ffcc00; color: #ffcc00;">Force Success (Override)</button>
+      <div style="text-align:center; font-weight:bold; color:#fff; margin-bottom:10px;">HOTEL DEBUGGER v2</div>
+      <button class="debug-btn" onclick="hackMoney()">💰 Get $1,000,000</button>
+      <button class="debug-btn" onclick="skipTutorial()">⏩ Skip Tutorial</button>
+      <button class="debug-btn" onclick="forceRewardSuccess()" style="border-color:#ffcc00; color:#ffcc00;">🔓 Force Unfreeze Ad</button>
       <div id="log-box"></div>
     </div>
 
@@ -97,7 +110,7 @@
         productVersion: "1.0.3"
       }).then((instance) => {
           window.uInst = instance;
-          addLog("🟢 Unity Engine Ready.");
+          addLog("🟢 Unity Ready.");
       });
     </script>
   </body>
