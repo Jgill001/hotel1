@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>My Perfect Hotel - Diagnostics</title>
-    <link rel="icon" href="data:,"> <style>
+    <link rel="icon" href="data:,">
+    
+    <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
       
@@ -27,6 +29,14 @@
       #toggle-btn {
         background: #444; color: white; border: none; cursor: pointer; padding: 5px 10px; border-radius: 3px;
       }
+
+      /* The floating Show Button */
+      #show-btn {
+        position: absolute; top: 10px; left: 10px; z-index: 99998;
+        background: rgba(0,0,0,0.6); color: #00FF00; border: 1px solid #00FF00;
+        padding: 8px 12px; border-radius: 4px; font-family: monospace; cursor: pointer;
+        display: none; /* Hidden by default while panel is open */
+      }
     </style>
 
     <script src="./poki-sdk.js"></script>
@@ -47,7 +57,6 @@
               li.className = `diag-${type}`;
               li.innerText = msg;
               list.appendChild(li);
-              // Auto-scroll to bottom
               document.getElementById('diag-panel').scrollTop = document.getElementById('diag-panel').scrollHeight;
           };
 
@@ -74,7 +83,7 @@
               }
           };
 
-          // 2. Intercept XHR (Unity often uses this for AssetBundles)
+          // 2. Intercept XHR
           const ogOpen = XMLHttpRequest.prototype.open;
           const ogSend = XMLHttpRequest.prototype.send;
           
@@ -96,50 +105,5 @@
               this.addEventListener('error', function() {
                   window.logDiag(`[XHR FAIL] ${this._reqUrl}`, 'err');
               });
-              return ogSend.apply(this, arguments);
-          };
-      });
-
-      function togglePanel() {
-          const panel = document.getElementById('diag-panel');
-          if (panel.style.transform === 'translateX(-100%)') {
-              panel.style.transform = 'translateX(0)';
-          } else {
-              panel.style.transform = 'translateX(-100%)';
-          }
-      }
-
-      function fixCanvasSize() {
-          const canvas = document.querySelector("#unity-canvas");
-          if (canvas) { canvas.style.height = window.innerHeight + "px"; canvas.style.width = window.innerWidth + "px"; }
-      }
-      window.addEventListener('resize', fixCanvasSize);
-    </script>
-  </head>
-  <body onload="fixCanvasSize()">
-    
-    <div id="diag-panel">
-      <div id="diag-header">
-        <strong>Network Tracker</strong>
-        <button id="toggle-btn" onclick="togglePanel()">Hide</button>
-      </div>
-      <ul id="diag-list">
-        <li class="diag-warn">Awaiting network errors...</li>
-      </ul>
-    </div>
-
-    <canvas id="unity-canvas" tabindex="1"></canvas>
-    <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
-    <script>
-      createUnityInstance(document.querySelector("#unity-canvas"), {
-        dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
-        frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
-        codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "master",
-        productName: "My Hotel",
-        productVersion: "1.0.3"
-      });
-    </script>
-  </body>
-</html>
+              return ogSend.apply(
+                
