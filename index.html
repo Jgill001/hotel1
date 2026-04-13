@@ -2,51 +2,30 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Hotel Pinpoint Debugger</title>
-    <link rel="icon" href="data:,">
+    <title>Hotel Direct Injector</title>
     <style>
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; }
-      #unity-canvas { width: 100vw; height: 100vh; background: #00C565; display: block; outline: none; }
+      /* ORIGINAL WORKING CSS */
+      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
+      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
       
-      /* Terminal UI */
-      #debug-panel {
-        position: absolute; top: 10px; left: 10px; z-index: 99999;
-        background: rgba(0, 0, 0, 0.85); color: #00FF00; padding: 10px;
-        border: 2px solid #00FF00; border-radius: 5px; width: 280px;
-        font-family: monospace; font-size: 11px;
+      /* Control Panel */
+      #debug-ui {
+        position: absolute; top: 0; left: 0; width: 100%;
+        display: flex; flex-wrap: wrap; justify-content: center;
+        background: rgba(0,0,0,0.8); z-index: 1000; padding: 5px;
       }
-      .btn { width: 100%; margin: 5px 0; padding: 10px; cursor: pointer; background: #222; color: #00FF00; border: 1px solid #00FF00; font-weight: bold; }
-      #net-log { background: #000; padding: 5px; height: 120px; overflow-y: auto; margin-top: 10px; border: 1px solid #333; }
+      .btn {
+        margin: 5px; padding: 10px 15px; cursor: pointer;
+        font-weight: bold; border-radius: 5px; border: none; font-family: sans-serif;
+      }
+      .money { background: #ffcc00; color: black; }
+      .ad { background: #007bff; color: white; }
+      .unfreeze { background: #dc3545; color: white; }
+      #status { position: absolute; bottom: 10px; left: 10px; color: white; font-family: monospace; z-index: 1001; pointer-events: none; }
     </style>
 
     <script>
-      function logNet(msg, type='ok') {
-          const nl = document.getElementById('net-log');
-          if (nl) {
-              const div = document.createElement('div');
-              div.style.color = type === 'err' ? '#ff4444' : '#00ff00';
-              div.innerText = `[${new Date().toLocaleTimeString().split(' ')[0]}] ${msg}`;
-              nl.appendChild(div);
-              nl.scrollTop = nl.scrollHeight;
-          }
-      }
-
-      // 1. BRIDGE FIXES (Prevents Green Screen)
-      window.initPokiBridge = () => { logNet("✅ Bridge Init"); return true; };
-      
-      window.PokiSDK = {
-          init: () => Promise.resolve({adblocked: false}),
-          commercialBreak: () => Promise.resolve(),
-          rewardedBreak: () => {
-              logNet("💎 AD BUTTON CLICKED!");
-              return new Promise(resolve => { window._adResolve = resolve; });
-          },
-          gameplayStart: () => {}, gameplayStop: () => {}, gameInteractive: () => {}
-      };
-      window.rewardedBreak = window.PokiSDK.rewardedBreak;
-
-      // 2. TRAFFIC REDIRECTOR
+      // 1. TRAFFIC REDIRECTOR (Fixes Green Screen)
       const originalFetch = window.fetch;
       window.fetch = async function(input, init) {
           let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -57,35 +36,66 @@
           return originalFetch(url, init);
       };
 
-      // 3. RESIZE LOGIC (Back to the working version)
-      function fixCanvasSize() {
-          const canvas = document.querySelector("#unity-canvas");
-          if (canvas) {
-              canvas.style.width = window.innerWidth + "px";
-              canvas.style.height = window.innerHeight + "px";
-          }
-      }
-      window.addEventListener('resize', fixCanvasSize);
+      // 2. THE BRIDGE 
+      window.initPokiBridge = () => true;
+      window.PokiSDK = {
+          init: () => Promise.resolve({adblocked: false}),
+          commercialBreak: () => Promise.resolve(),
+          rewardedBreak: () => {
+              document.getElementById('status').innerText = "Status: Ad Requested";
+              return new Promise(resolve => { window._adResolve = resolve; });
+          },
+          gameplayStart: () => {}, gameplayStop: () => {}
+      };
+      window.rewardedBreak = window.PokiSDK.rewardedBreak;
 
-      // 4. ACTIONS
-      function triggerSuccess() {
+      // 3. THE DIRECT INJECTION FUNCTIONS
+      function hackMoney() {
+          if (!window.uInst) return;
+          console.log("💰 Injecting Cash...");
+          // Try multiple common object/method names
+          const targets = ["GameManager", "CurrencyManager", "InventoryManager", "AdsManager", "Bank"];
+          targets.forEach(t => {
+              window.uInst.SendMessage(t, "AddMoney", 100000);
+              window.uInst.SendMessage(t, "AddCurrency", 100000);
+              window.uInst.SendMessage(t, "CheatMoney");
+          });
+      }
+
+      function forceOpenAd() {
+          if (!window.uInst) return;
+          console.log("🚀 Forcing Ad UI...");
+          const targets = ["AdsManager", "PokiUnitySDK", "AdManager", "UIRoot"];
+          targets.forEach(t => {
+              window.uInst.SendMessage(t, "ShowRewarded");
+              window.uInst.SendMessage(t, "rewardedBreak");
+          });
+      }
+
+      function forceSuccess() {
           if (window._adResolve) {
-              logNet("📤 Sending 'TRUE'...");
               window._adResolve(true);
               window._adResolve = null;
+          }
+          // Also try to call the C# callback directly
+          if (window.uInst) {
+              window.uInst.SendMessage("AdsManager", "OnRewardedFinished", "true");
+              window.uInst.SendMessage("PokiUnitySDK", "adFinished", "true");
           }
       }
     </script>
   </head>
-  <body onload="fixCanvasSize()">
+  <body>
 
-    <div id="debug-panel">
-      <b>TERMINAL v5</b>
-      <div id="net-log">Waiting for load...</div>
-      <button class="btn" onclick="triggerSuccess()" style="border-color:#ffcc00; color:#ffcc00;">🔓 FORCE REWARD SUCCESS</button>
+    <div id="debug-ui">
+      <button class="btn money" onclick="hackMoney()">💰 +100k CASH</button>
+      <button class="btn ad" onclick="forceOpenAd()">📺 OPEN AD UI</button>
+      <button class="btn unfreeze" onclick="forceSuccess()">🔓 FORCE REWARD</button>
     </div>
 
-    <canvas id="unity-canvas" tabindex="1"></canvas>
+    <div id="status">Status: Engine Loading...</div>
+
+    <canvas id="unity-canvas"></canvas>
 
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
@@ -99,7 +109,7 @@
         productVersion: "1.0.3"
       }).then((instance) => {
           window.uInst = instance;
-          logNet("🟢 ENGINE READY.");
+          document.getElementById('status').innerText = "Status: 🟢 READY";
       });
     </script>
   </body>
