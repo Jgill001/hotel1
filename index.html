@@ -3,40 +3,111 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - The Deep Spoof</title>
-    <style>
+    <title>My Perfect Hotel - Diagnostics</title>
+    <link rel="icon" href="data:,"> <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
+      
+      /* The Diagnostic Panel UI */
+      #diag-panel {
+        position: absolute; top: 0; left: 0; width: 350px; height: 100%; 
+        background: rgba(10, 10, 10, 0.9); color: #fff; z-index: 99999; 
+        font-family: monospace; font-size: 11px; overflow-y: auto;
+        border-right: 2px solid #333; transition: transform 0.3s;
+      }
+      #diag-header {
+        background: #222; padding: 10px; display: flex; justify-content: space-between;
+        border-bottom: 1px solid #444; position: sticky; top: 0;
+      }
+      #diag-list { padding: 10px; margin: 0; list-style: none; word-wrap: break-word; }
+      .diag-err { color: #ff4444; margin-bottom: 8px; border-left: 2px solid #ff4444; padding-left: 5px; }
+      .diag-warn { color: #ffcc00; margin-bottom: 8px; }
+      .diag-ok { color: #00C565; margin-bottom: 4px; opacity: 0.7; }
+      
+      #toggle-btn {
+        background: #444; color: white; border: none; cursor: pointer; padding: 5px 10px; border-radius: 3px;
+      }
     </style>
-    
+
     <script src="./poki-sdk.js"></script>
 
     <script>
-      // 1. THE DEEP SPOOF (Monkey Mart Style)
-      // We wrap the property definitions in try/catch because some browsers block overriding location
+      // Sitelock Spoofing
       try { Object.defineProperty(document, 'domain', { get: () => "poki.com" }); } catch(e){}
       try { Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" }); } catch(e){}
-      try { Object.defineProperty(document, 'referrer', { get: () => "https://poki.com/" }); } catch(e){}
-      
-      // Override global variables the game might look for
-      window.location_hostname = "poki.com";
-      window.location_href = "https://poki.com/en/g/my-perfect-hotel";
 
-      // 2. Traffic Redirector
-      const originalFetch = window.fetch;
-      window.fetch = function(input, init) {
-          let url = typeof input === 'string' ? input : (input.url ? input.url : input);
-          if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
-              const parts = url.split('StreamingAssets');
-              return originalFetch("./StreamingAssets" + parts[parts.length - 1], init);
+      window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
+
+      // --- NETWORK DIAGNOSTICS TRACKER ---
+      document.addEventListener("DOMContentLoaded", () => {
+          const list = document.getElementById('diag-list');
+          
+          window.logDiag = function(msg, type) {
+              const li = document.createElement('li');
+              li.className = `diag-${type}`;
+              li.innerText = msg;
+              list.appendChild(li);
+              // Auto-scroll to bottom
+              document.getElementById('diag-panel').scrollTop = document.getElementById('diag-panel').scrollHeight;
+          };
+
+          // 1. Intercept FETCH
+          const ogFetch = window.fetch;
+          window.fetch = async function(input, init) {
+              let url = typeof input === 'string' ? input : (input.url ? input.url : input);
+              let fetchUrl = url;
+              
+              if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+                  const parts = url.split('StreamingAssets');
+                  fetchUrl = "./StreamingAssets" + parts[parts.length - 1];
+              }
+
+              try {
+                  const response = await ogFetch(fetchUrl, init);
+                  if (!response.ok) {
+                      window.logDiag(`[FETCH ERROR ${response.status}] ${fetchUrl}`, 'err');
+                  } 
+                  return response;
+              } catch (err) {
+                  window.logDiag(`[FETCH FAIL] ${fetchUrl} - ${err.message}`, 'err');
+                  throw err;
+              }
+          };
+
+          // 2. Intercept XHR (Unity often uses this for AssetBundles)
+          const ogOpen = XMLHttpRequest.prototype.open;
+          const ogSend = XMLHttpRequest.prototype.send;
+          
+          XMLHttpRequest.prototype.open = function(method, url) {
+              this._reqUrl = url;
+              if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+                  const parts = url.split('StreamingAssets');
+                  this._reqUrl = "./StreamingAssets" + parts[parts.length - 1];
+              }
+              return ogOpen.apply(this, [method, this._reqUrl]);
+          };
+          
+          XMLHttpRequest.prototype.send = function() {
+              this.addEventListener('load', function() {
+                  if (this.status >= 400) {
+                      window.logDiag(`[XHR ERROR ${this.status}] ${this._reqUrl}`, 'err');
+                  }
+              });
+              this.addEventListener('error', function() {
+                  window.logDiag(`[XHR FAIL] ${this._reqUrl}`, 'err');
+              });
+              return ogSend.apply(this, arguments);
+          };
+      });
+
+      function togglePanel() {
+          const panel = document.getElementById('diag-panel');
+          if (panel.style.transform === 'translateX(-100%)') {
+              panel.style.transform = 'translateX(0)';
+          } else {
+              panel.style.transform = 'translateX(-100%)';
           }
-          return originalFetch(input, init);
-      };
-
-      // 3. Polyfill for Legacy Unity function
-      window.Pointer_stringify = function(ptr) { 
-          return window.UTF8ToString ? window.UTF8ToString(ptr) : "LegacyString"; 
-      };
+      }
 
       function fixCanvasSize() {
           const canvas = document.querySelector("#unity-canvas");
@@ -46,6 +117,17 @@
     </script>
   </head>
   <body onload="fixCanvasSize()">
+    
+    <div id="diag-panel">
+      <div id="diag-header">
+        <strong>Network Tracker</strong>
+        <button id="toggle-btn" onclick="togglePanel()">Hide</button>
+      </div>
+      <ul id="diag-list">
+        <li class="diag-warn">Awaiting network errors...</li>
+      </ul>
+    </div>
+
     <canvas id="unity-canvas" tabindex="1"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
