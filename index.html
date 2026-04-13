@@ -2,25 +2,36 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <title>Hotel Clean Pinpoint</title>
+    <title>My Perfect Hotel</title>
     <style>
-      /* EXACT ORIGINAL CSS - NO CHANGES */
+      /* THE EXACT CSS FROM THE WORKING VERSION */
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
       
-      /* Tiny floating controls that won't break scaling */
-      #pinpoint-ui {
-        position: absolute; top: 5px; right: 5px; z-index: 1000;
-        display: flex; flex-direction: column; gap: 4px;
+      /* FLOATING BUTTONS - These do not affect the game's size/scale */
+      #debug-menu {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
-      .mini-btn {
-        padding: 6px; background: rgba(0,0,0,0.7); color: #00FF00;
-        border: 1px solid #00FF00; font-size: 10px; cursor: pointer; font-family: monospace;
+      .btn {
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #00FF00;
+        border: 2px solid #00FF00;
+        cursor: pointer;
+        font-weight: bold;
+        font-family: sans-serif;
+        border-radius: 5px;
       }
     </style>
 
     <script>
-      // 1. REDIRECTOR
+      // 1. THE REDIRECTOR (Required for load)
       const originalFetch = window.fetch;
       window.fetch = async function(input, init) {
           let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -31,51 +42,50 @@
           return originalFetch(url, init);
       };
 
-      // 2. THE MANDATORY BRIDGE
+      // 2. THE BRIDGE (Required to fix green screen)
       window.initPokiBridge = () => true;
       window.PokiSDK = {
           init: () => Promise.resolve({adblocked: false}),
           commercialBreak: () => Promise.resolve(),
-          rewardedBreak: () => new Promise(resolve => { window._adRes = resolve; }),
-          gameplayStart: () => {}, gameplayStop: () => {}
+          rewardedBreak: () => {
+              return new Promise(resolve => { window._adResolve = resolve; });
+          },
+          gameplayStart: () => {},
+          gameplayStop: () => {}
       };
       window.rewardedBreak = window.PokiSDK.rewardedBreak;
 
-      // 3. THE PINPOINT SCANNER
-      // This function scans the Unity engine for its actual internal object names
-      function scanAndInject() {
+      // 3. THE BUTTON LOGIC
+      function addCash() {
           if (!window.uInst) return;
-          console.log("🔍 SCANNING FOR MONEY OBJECTS...");
-          
-          // We will try every common Poki-Unity internal name
-          const objects = ["PokiUnitySDK", "AdsManager", "AdManager", "GameManager", "Main", "Inventory", "CurrencyManager"];
-          const methods = ["OnRewardedFinished", "onRewardedBreakComplete", "AddMoney", "AddCurrency", "GrantReward"];
-
-          objects.forEach(obj => {
-              methods.forEach(meth => {
-                  // Attempting to send "true" or a high number to every possible combination
-                  try { window.uInst.SendMessage(obj, meth, "true"); } catch(e){}
-                  try { window.uInst.SendMessage(obj, meth, 1000000); } catch(e){}
-              });
+          // Shotgun blast of possible names
+          const objs = ["AdsManager", "GameManager", "CurrencyManager", "PokiUnitySDK"];
+          objs.forEach(o => {
+              try { window.uInst.SendMessage(o, "AddMoney", 100000); } catch(e){}
+              try { window.uInst.SendMessage(o, "AddCurrency", 100000); } catch(e){}
           });
-          alert("Injection attempts sent. Check your money!");
       }
 
       function forceSuccess() {
-          if (window._adRes) { window._adRes(true); window._adRes = null; }
-          // Direct bypass to the most likely Poki-Unity object
-          try { window.uInst.SendMessage("PokiUnitySDK", "onRewardedBreakComplete"); } catch(e){}
+          if (window._adResolve) {
+              window._adResolve(true);
+              window._adResolve = null;
+          }
+          if (window.uInst) {
+              try { window.uInst.SendMessage("AdsManager", "OnRewardedFinished", "true"); } catch(e){}
+              try { window.uInst.SendMessage("PokiUnitySDK", "adFinished", "true"); } catch(e){}
+          }
       }
     </script>
   </head>
   <body>
 
-    <div id="pinpoint-ui">
-      <button class="mini-btn" onclick="scanAndInject()">💰 SCAN & INJECT CASH</button>
-      <button class="mini-btn" onclick="forceSuccess()">🔓 FORCE UNFREEZE</button>
+    <div id="debug-menu">
+      <button class="btn" onclick="addCash()">💰 ADD CASH</button>
+      <button class="btn" onclick="forceSuccess()" style="border-color: red; color: red;">🔓 FORCE REWARD</button>
     </div>
 
-    <canvas id="unity-canvas"></canvas>
+    <canvas id="unity-canvas" tabindex="1"></canvas>
 
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
@@ -86,9 +96,7 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "master",
         productName: "My Hotel",
-        productVersion: "1.0.3",
-        // Force the ratio to 1 to fix the zoom/size issues
-        devicePixelRatio: 1 
+        productVersion: "1.0.3"
       }).then((instance) => {
           window.uInst = instance;
       });
