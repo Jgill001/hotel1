@@ -1,54 +1,68 @@
 window.heistLog = window.heistLog || [];
 const track = function(msg) { window.heistLog.push(msg); console.log(msg); };
 
+// 1. The Audio Error Tracker
+// We listen for the exact moment Unity panics about a missing sound.
+const ogError = console.error;
+console.error = function(...args) {
+    if (args[0] && typeof args[0] === 'string' && args[0].includes("Trying to get length of sound")) {
+        window._lastAudioErrorTime = Date.now();
+    }
+    ogError.apply(console, args);
+};
+
+// 2. The WebAssembly Interceptor
+// This sits between the Browser and the C# Engine. 
+function patchWasmEnv(info) {
+    if (info && info.env) {
+        for (let key in info.env) {
+            if (typeof info.env[key] === 'function') {
+                const ogFunc = info.env[key];
+                info.env[key] = function(...args) {
+                    let res = ogFunc.apply(this, args);
+                    
+                    // If JS is trying to hand C# a zero right after an audio error...
+                    if (res === 0 && window._lastAudioErrorTime && (Date.now() - window._lastAudioErrorTime < 50)) {
+                        track("🛠️ WASM INTERCEPTOR: Prevented Divide-by-Zero UI Crash! Forcing length to 1.0s");
+                        return 1.0; // Fake the length to 1 second to prevent the NaN math crash
+                    }
+                    return res;
+                };
+            }
+        }
+    }
+}
+
+// We attach the interceptor to both ways Unity might boot up
+const ogInstantiate = WebAssembly.instantiate;
+WebAssembly.instantiate = function(bytes, info) {
+    patchWasmEnv(info);
+    return ogInstantiate(bytes, info);
+};
+
+const ogInstantiateStreaming = WebAssembly.instantiateStreaming;
+if (ogInstantiateStreaming) {
+    WebAssembly.instantiateStreaming = function(response, info) {
+        patchWasmEnv(info);
+        return ogInstantiateStreaming(response, info);
+    };
+}
+
+// 3. The Standard SDK Mock
 window.PokiSDK = {
-    init: function() { 
-        track("SDK: Initialized");
-        return Promise.resolve(); 
-    },
-    
-    commercialBreak: function(cb) {
-        track("SDK: Commercial Break");
-        if (typeof cb === 'function') cb(false);
-        return Promise.resolve(false);
-    },
-    
+    init: function() { return Promise.resolve(); },
+    commercialBreak: function() { return Promise.resolve(false); },
     rewardedBreak: function() {
-        // Log EXACTLY what the game passes to the SDK
-        track("SDK: Rewarded Break Called. Arguments passed: " + arguments.length);
-        console.log("Ad Arguments:", arguments);
-
-        // Capture any potential callback function passed by older SDKs
-        let possibleCallback = arguments[0];
-
+        track("SDK: Rewarded Break Requested.");
         return new Promise(function(resolve) {
             setTimeout(function() {
-                track("SDK: Firing 'Ad Finished' signals...");
-                
-                // 1. Fire modern Promise resolution
-                resolve(true);
-
-                // 2. Fire legacy callback if the game provided one
-                if (typeof possibleCallback === 'function') {
-                    track("-> Legacy callback detected! Executing...");
-                    possibleCallback(true);
-                }
-
-                // 3. Force the browser to wake the Unity WebGL thread up
-                // Unity often pauses its internal clock when it thinks an ad is overlaying the screen.
-                window.dispatchEvent(new Event('focus'));
-                let canvas = document.getElementById('unity-canvas');
-                if (canvas) {
-                    canvas.focus();
-                    canvas.dispatchEvent(new MouseEvent('mousedown'));
-                }
-
+                track("SDK: Ad Finished, resolving true.");
+                resolve(true); 
             }, 1000); 
         });
     },
-    
-    gameplayStart: function() { track("GAME: gameplayStart"); },
-    gameplayStop: function() { track("GAME: gameplayStop"); },
+    gameplayStart: function() {},
+    gameplayStop: function() {},
     gameLoadingFinished: function() {},
     gameInteractive: function() {},
     setDebug: function() {}
