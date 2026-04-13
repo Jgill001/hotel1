@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - External SDK Test</title>
+    <title>My Perfect Hotel - The Deep Spoof</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
@@ -12,9 +12,15 @@
     <script src="./poki-sdk.js"></script>
 
     <script>
-      // 1. Sitelock Spoofing
-      Object.defineProperty(document, 'domain', { get: () => "poki.com" });
-      Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
+      // 1. THE DEEP SPOOF (Monkey Mart Style)
+      // We wrap the property definitions in try/catch because some browsers block overriding location
+      try { Object.defineProperty(document, 'domain', { get: () => "poki.com" }); } catch(e){}
+      try { Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" }); } catch(e){}
+      try { Object.defineProperty(document, 'referrer', { get: () => "https://poki.com/" }); } catch(e){}
+      
+      // Override global variables the game might look for
+      window.location_hostname = "poki.com";
+      window.location_href = "https://poki.com/en/g/my-perfect-hotel";
 
       // 2. Traffic Redirector
       const originalFetch = window.fetch;
@@ -27,10 +33,11 @@
           return originalFetch(input, init);
       };
 
-      // 3. Polyfill
-      window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
+      // 3. Polyfill for Legacy Unity function
+      window.Pointer_stringify = function(ptr) { 
+          return window.UTF8ToString ? window.UTF8ToString(ptr) : "LegacyString"; 
+      };
 
-      // 4. Resize Fix
       function fixCanvasSize() {
           const canvas = document.querySelector("#unity-canvas");
           if (canvas) { canvas.style.height = window.innerHeight + "px"; canvas.style.width = window.innerWidth + "px"; }
