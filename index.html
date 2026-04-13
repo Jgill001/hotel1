@@ -2,31 +2,25 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <title>Hotel Master Debug</title>
+    <title>Hotel Clean Pinpoint</title>
     <style>
-      /* THE EXACT CSS THAT WORKED FOR YOUR SCALING */
+      /* EXACT ORIGINAL CSS - NO CHANGES */
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
       
-      /* Floating Debug UI - Does not affect game layout */
-      #debug-ui {
-        position: absolute; top: 10px; left: 10px; z-index: 1000;
-        background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px;
-        display: flex; flex-direction: column; gap: 5px; width: 150px;
-        border: 1px solid #555; pointer-events: auto;
+      /* Tiny floating controls that won't break scaling */
+      #pinpoint-ui {
+        position: absolute; top: 5px; right: 5px; z-index: 1000;
+        display: flex; flex-direction: column; gap: 4px;
       }
-      .btn {
-        padding: 8px; cursor: pointer; font-size: 11px; font-weight: bold;
-        border: none; border-radius: 4px; text-transform: uppercase;
+      .mini-btn {
+        padding: 6px; background: rgba(0,0,0,0.7); color: #00FF00;
+        border: 1px solid #00FF00; font-size: 10px; cursor: pointer; font-family: monospace;
       }
-      .money { background: #ffcc00; color: #000; }
-      .ad { background: #007bff; color: #fff; }
-      .unfreeze { background: #ff4444; color: #fff; }
-      #status-text { color: #00ff00; font-family: monospace; font-size: 10px; margin-bottom: 5px; }
     </style>
 
     <script>
-      // 1. THE REDIRECTOR (Fixes Green Screen)
+      // 1. REDIRECTOR
       const originalFetch = window.fetch;
       window.fetch = async function(input, init) {
           let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -37,60 +31,48 @@
           return originalFetch(url, init);
       };
 
-      // 2. THE BRIDGE
+      // 2. THE MANDATORY BRIDGE
       window.initPokiBridge = () => true;
       window.PokiSDK = {
           init: () => Promise.resolve({adblocked: false}),
           commercialBreak: () => Promise.resolve(),
-          rewardedBreak: () => {
-              document.getElementById('status-text').innerText = "AD REQUESTED";
-              return new Promise(resolve => { window._adResolve = resolve; });
-          },
+          rewardedBreak: () => new Promise(resolve => { window._adRes = resolve; }),
           gameplayStart: () => {}, gameplayStop: () => {}
       };
       window.rewardedBreak = window.PokiSDK.rewardedBreak;
 
-      // 3. DEBUG ACTIONS
-      function hackMoney() {
+      // 3. THE PINPOINT SCANNER
+      // This function scans the Unity engine for its actual internal object names
+      function scanAndInject() {
           if (!window.uInst) return;
-          console.log("💰 Sending Money Commands...");
-          const targets = ["GameManager", "CurrencyManager", "InventoryManager", "AdsManager", "Bank"];
-          targets.forEach(t => {
-              try { window.uInst.SendMessage(t, "AddMoney", 50000); } catch(e){}
-              try { window.uInst.SendMessage(t, "AddCurrency", 50000); } catch(e){}
-          });
-      }
+          console.log("🔍 SCANNING FOR MONEY OBJECTS...");
+          
+          // We will try every common Poki-Unity internal name
+          const objects = ["PokiUnitySDK", "AdsManager", "AdManager", "GameManager", "Main", "Inventory", "CurrencyManager"];
+          const methods = ["OnRewardedFinished", "onRewardedBreakComplete", "AddMoney", "AddCurrency", "GrantReward"];
 
-      function forceOpenAd() {
-          if (!window.uInst) return;
-          const targets = ["AdsManager", "PokiUnitySDK", "AdManager"];
-          targets.forEach(t => {
-              try { window.uInst.SendMessage(t, "ShowRewarded"); } catch(e){}
-              try { window.uInst.SendMessage(t, "rewardedBreak"); } catch(e){}
+          objects.forEach(obj => {
+              methods.forEach(meth => {
+                  // Attempting to send "true" or a high number to every possible combination
+                  try { window.uInst.SendMessage(obj, meth, "true"); } catch(e){}
+                  try { window.uInst.SendMessage(obj, meth, 1000000); } catch(e){}
+              });
           });
+          alert("Injection attempts sent. Check your money!");
       }
 
       function forceSuccess() {
-          console.log("🔓 Attempting Nuclear Unfreeze...");
-          // Resolve JS
-          if (window._adResolve) { window._adResolve(true); window._adResolve = null; }
-          // Direct C# Callback
-          if (window.uInst) {
-              try { window.uInst.SendMessage("AdsManager", "OnRewardedFinished", "true"); } catch(e){}
-              try { window.uInst.SendMessage("PokiUnitySDK", "adFinished", "true"); } catch(e){}
-              try { window.uInst.SendMessage("AdsManager", "CloseAdInternal"); } catch(e){}
-          }
-          document.getElementById('status-text').innerText = "COMMAND SENT";
+          if (window._adRes) { window._adRes(true); window._adRes = null; }
+          // Direct bypass to the most likely Poki-Unity object
+          try { window.uInst.SendMessage("PokiUnitySDK", "onRewardedBreakComplete"); } catch(e){}
       }
     </script>
   </head>
   <body>
 
-    <div id="debug-ui">
-      <div id="status-text">ENGINE LOADING...</div>
-      <button class="btn money" onclick="hackMoney()">💰 +50k Money</button>
-      <button class="btn ad" onclick="forceOpenAd()">📺 Open Ad UI</button>
-      <button class="btn unfreeze" onclick="forceSuccess()">🔓 Force Success</button>
+    <div id="pinpoint-ui">
+      <button class="mini-btn" onclick="scanAndInject()">💰 SCAN & INJECT CASH</button>
+      <button class="mini-btn" onclick="forceSuccess()">🔓 FORCE UNFREEZE</button>
     </div>
 
     <canvas id="unity-canvas"></canvas>
@@ -104,10 +86,11 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "master",
         productName: "My Hotel",
-        productVersion: "1.0.3"
+        productVersion: "1.0.3",
+        // Force the ratio to 1 to fix the zoom/size issues
+        devicePixelRatio: 1 
       }).then((instance) => {
           window.uInst = instance;
-          document.getElementById('status-text').innerText = "READY 🟢";
       });
     </script>
   </body>
