@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - Offline Bypass</title>
+    <title>My Perfect Hotel - Debug: The Denial Test</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
@@ -15,12 +15,10 @@
           window.heistLog = [];
           const track = (msg) => { window.heistLog.push(`${new Date().toLocaleTimeString()} ${msg}`); console.log(msg); };
 
-          // 1. Polyfills and Spoofing
           window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
           Object.defineProperty(document, 'domain', { get: () => "poki.com" });
           Object.defineProperty(document, 'URL', { get: () => "https://poki.com/en/g/my-perfect-hotel" });
 
-          // 2. Traffic Redirector (Local Only)
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -31,37 +29,23 @@
               return originalFetch(input, init);
           };
 
-          // 3. THE 100% OFFLINE SDK
+          // --- THE EXPERIMENT ---
           window.PokiSDK = {
-              init: () => {
-                  track("SDK: Initialized Locally (Offline)");
-                  return Promise.resolve();
-              },
+              init: () => { track("SDK: Init"); return Promise.resolve(); },
+              commercialBreak: () => Promise.resolve(false),
               
-              commercialBreak: function(pauseCallback) {
-                  track("SDK: Interstitial Skipped");
+              rewardedBreak: function(pauseCallback) {
+                  track("SDK: Reward Requested. Running DENIAL TEST...");
                   if (typeof pauseCallback === 'function') {
                       try { pauseCallback(); } catch(e) {}
                   }
-                  return new Promise(r => setTimeout(() => r(false), 500));
-              },
-              
-              rewardedBreak: function(pauseCallback) {
-                  track("SDK: Reward Requested. Initiating 3.5s Anti-Cheat Bypass...");
-                  
-                  // CRITICAL: Execute the game's internal pause function
-                  if (typeof pauseCallback === 'function') {
-                      track("SDK: Executing game's internal pause callback");
-                      try { pauseCallback(); } catch(e) { track("Pause Error: " + e); }
-                  }
                   
                   return new Promise((resolve) => {
-                      // Wait out the anti-cheat timer so the game doesn't punish us with a freeze
                       setTimeout(() => {
-                          track("SDK: Anti-Cheat cleared. Resolving Reward!");
-                          window.focus(); // Wake up the WebGL thread if it suspended
-                          resolve(true); 
-                      }, 3500); 
+                          track("SDK: Resolving FALSE (Intentionally failing ad)");
+                          window.focus(); 
+                          resolve(false); // <-- We are telling the game the ad failed
+                      }, 1000); 
                   });
               },
               
@@ -72,7 +56,6 @@
               setDebug: () => {}
           };
 
-          // Global hooks for legacy WASM calls
           window.rewardedBreak = window.PokiSDK.rewardedBreak;
           window.commercialBreak = window.PokiSDK.commercialBreak;
           window.initPokiBridge = () => true;
