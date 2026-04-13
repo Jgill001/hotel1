@@ -1,28 +1,41 @@
+// --- 1. THE AUDIO SILENCER ---
+// Intercept Uncaught Promise Rejections globally
+window.addEventListener('unhandledrejection', function(event) {
+    if (event.reason && event.reason.name === 'NotSupportedError') {
+        console.log("🛡️ AUDIO CRASH PREVENTED: Suppressed unhandled NotSupportedError!");
+        event.preventDefault(); // Stop the grenade from killing the Unity thread
+    }
+});
+
+// Intercept HTML5 Audio Playback
+const originalPlay = HTMLAudioElement.prototype.play;
+HTMLAudioElement.prototype.play = function() {
+    return originalPlay.apply(this, arguments).catch(e => {
+        console.log("🛡️ HTML AUDIO SILENCED: " + e.message);
+    });
+};
+
+// Intercept WebAudio API Playback
+if (window.AudioBufferSourceNode) {
+    const originalStart = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function() {
+        try {
+            originalStart.apply(this, arguments);
+        } catch (e) {
+            console.log("🛡️ WEB AUDIO SILENCED: " + e.message);
+        }
+    };
+}
+
+// --- 2. THE CLEAN SDK ---
 window.PokiSDK = {
     init: () => Promise.resolve(),
     commercialBreak: () => Promise.resolve(false),
     
+    // Send the reward back immediately now that the thread won't die
     rewardedBreak: () => {
-        console.log("SDK: Reward Requested. Deploying the Promise Spy...");
-        
-        // Create the reward promise
-        let p = new Promise((resolve) => {
-            setTimeout(() => {
-                console.log("SDK: Handing 'true' back to the game...");
-                resolve(true);
-            }, 1000);
-        });
-
-        // 🕵️ THE SPY
-        // We intercept the .then() function. If the game is healthy, it MUST call this 
-        // to hear our answer. If this doesn't log, the game is deaf.
-        const originalThen = p.then;
-        p.then = function(onFulfilled, onRejected) {
-            console.log("🎯 BINGO! The Unity Engine is actively listening for the reward!");
-            return originalThen.call(this, onFulfilled, onRejected);
-        };
-
-        return p;
+        console.log("SDK: Reward Requested. Handing true back to game.");
+        return Promise.resolve(true);
     },
     
     setDebug: () => {},
@@ -32,6 +45,7 @@ window.PokiSDK = {
     gameInteractive: () => {}
 };
 
+// Global Bindings
 window.rewardedBreak = window.PokiSDK.rewardedBreak;
 window.commercialBreak = window.PokiSDK.commercialBreak;
 window.initPokiBridge = () => true;
