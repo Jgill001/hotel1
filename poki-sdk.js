@@ -3,13 +3,26 @@ window.PokiSDK = {
     commercialBreak: () => Promise.resolve(false),
     
     rewardedBreak: () => {
-        console.log("SDK: Reward Requested. Sending into the Black Hole...");
+        console.log("SDK: Reward Requested. Deploying the Promise Spy...");
         
-        // We return a Promise, but we NEVER call resolve() or reject().
-        // The game will theoretically wait forever.
-        return new Promise((resolve, reject) => { 
-            // 🕳️ Absolutely nothing happens here.
+        // Create the reward promise
+        let p = new Promise((resolve) => {
+            setTimeout(() => {
+                console.log("SDK: Handing 'true' back to the game...");
+                resolve(true);
+            }, 1000);
         });
+
+        // 🕵️ THE SPY
+        // We intercept the .then() function. If the game is healthy, it MUST call this 
+        // to hear our answer. If this doesn't log, the game is deaf.
+        const originalThen = p.then;
+        p.then = function(onFulfilled, onRejected) {
+            console.log("🎯 BINGO! The Unity Engine is actively listening for the reward!");
+            return originalThen.call(this, onFulfilled, onRejected);
+        };
+
+        return p;
     },
     
     setDebug: () => {},
