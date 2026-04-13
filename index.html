@@ -2,26 +2,28 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <title>Hotel Clean Debug</title>
+    <title>My Perfect Hotel</title>
     <style>
-      /* THE ORIGINAL WORKING CSS */
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
-      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
-      
-      /* Tiny Debug Overlay */
-      #status-bar { 
-        position: absolute; top: 5px; left: 5px; z-index: 100; 
-        color: white; font-family: monospace; font-size: 12px; 
-        background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;
+      body { 
+        padding: 0; 
+        margin: 0; 
+        background-color: #00C565; 
+        overflow: hidden; 
+        width: 100vw; 
+        height: 100dvh; 
+        position: fixed; 
       }
-      #force-btn {
-        position: absolute; top: 5px; right: 5px; z-index: 101;
-        padding: 10px; background: red; color: white; font-weight: bold; border: none; cursor: pointer;
+      #unity-canvas { 
+        width: 100vw; 
+        height: 100dvh; 
+        background: #00C565; 
+        display: block; 
+        outline: none; 
       }
     </style>
 
     <script>
-      // 1. THE REDIRECTOR (Fixes Green Screen)
+      // Asset Redirector - Essential for loading files from GitHub
       const originalFetch = window.fetch;
       window.fetch = async function(input, init) {
           let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -32,38 +34,20 @@
           return originalFetch(url, init);
       };
 
-      // 2. THE BRIDGE (Fixes TypeError)
-      window.initPokiBridge = () => { updateStatus("Bridge Init ✅"); return true; };
+      // Engine Bridge - Essential to prevent initialization errors
+      window.initPokiBridge = () => true;
 
       window.PokiSDK = {
           init: () => Promise.resolve({adblocked: false}),
           commercialBreak: () => Promise.resolve(),
-          rewardedBreak: () => {
-              updateStatus("💎 AD CLICKED - WAITING...");
-              return new Promise(resolve => { window._adResolve = resolve; });
-          },
-          gameplayStart: () => {}, gameplayStop: () => {}
+          rewardedBreak: () => new Promise(() => {}), // Silent wait if an ad is clicked
+          gameplayStart: () => {}, 
+          gameplayStop: () => {}
       };
       window.rewardedBreak = window.PokiSDK.rewardedBreak;
-
-      function updateStatus(msg) {
-          document.getElementById('status-bar').innerText = msg;
-          console.log(msg);
-      }
-
-      function manualUnfreeze() {
-          if (window._adResolve) {
-              updateStatus("📤 FORCING SUCCESS...");
-              window._adResolve(true);
-              window._adResolve = null;
-          }
-      }
     </script>
   </head>
   <body>
-
-    <div id="status-bar">Loading Engine...</div>
-    <button id="force-btn" onclick="manualUnfreeze()">FORCE UNFREEZE</button>
 
     <canvas id="unity-canvas"></canvas>
 
@@ -77,8 +61,6 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3"
-      }).then((instance) => {
-          updateStatus("🟢 READY");
       });
     </script>
   </body>
