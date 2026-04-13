@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - The Real Fix</title>
+    <title>My Perfect Hotel - The Proxy Fix</title>
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
-      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; }
-      #log-btn { position: absolute; top: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.4); color: #00FF00; border: 1px solid #00FF00; padding: 8px; border-radius: 4px; font-family: monospace; }
+      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
+      #log-btn { position: absolute; top: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.6); color: #00FF00; border: 1px solid #00FF00; padding: 8px; border-radius: 4px; font-family: monospace; }
     </style>
     <script>
       (function() {
@@ -16,6 +16,7 @@
 
           window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
 
+          // Traffic Redirector
           const originalFetch = window.fetch;
           window.fetch = function(input, init) {
               let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -26,52 +27,54 @@
               return originalFetch(input, init);
           };
 
-          // --- THE PROPER SDK MOCK ---
-          window.PokiSDK = {
+          // Base SDK Methods
+          const baseSDK = {
               init: () => Promise.resolve(),
-              
-              // Interstitials
-              commercialBreak: function(pauseCallback) {
-                  track("SDK: Commercial Break Requested");
-                  // Execute the game's internal pause function if it provided one
-                  if (typeof pauseCallback === 'function') {
-                      track("SDK: Executing Game's Pause Callback");
-                      try { pauseCallback(); } catch(e) {}
-                  }
-                  return new Promise((resolve) => {
-                      setTimeout(() => { resolve(false); }, 500);
-                  });
+              commercialBreak: () => {
+                  track("SDK: Commercial Ad Skipped");
+                  return new Promise(r => setTimeout(() => r(false), 200));
               },
-              
-              // Rewards
-              rewardedBreak: function(pauseCallback) {
-                  track("SDK: Rewarded Break REQUESTED");
-                  
-                  // CRITICAL FIX: We MUST tell the game to pause using its own callback
-                  if (typeof pauseCallback === 'function') {
-                      track("SDK: Executing Game's Internal Pause Callback");
-                      try { pauseCallback(); } catch(e) { track("Pause Error: " + e); }
-                  }
-                  
+              rewardedBreak: () => {
+                  track("SDK: Rewarded Ad Requested");
                   return new Promise((resolve) => {
                       setTimeout(() => {
-                          track("SDK: Resolving Reward Success");
+                          track("SDK: Granting Reward & Forcing Canvas Focus");
                           
-                          // Force window focus just in case WebGL suspended its audio thread
-                          window.focus(); 
+                          // 1. Force the browser to refocus the game canvas
+                          const canvas = document.getElementById('unity-canvas');
+                          if (canvas) {
+                              window.focus();
+                              canvas.focus();
+                          }
                           
+                          // 2. Resolve the reward
                           resolve(true); 
-                      }, 1200);
+                      }, 500); 
                   });
               },
-              
-              // These are just telemetry hooks the game uses to talk to Poki. We just listen.
-              gameplayStart: () => { track("GAME TELLS SDK: Playing"); },
-              gameplayStop: () => { track("GAME TELLS SDK: Stopped"); },
-              gameLoadingFinished: () => {},
-              gameInteractive: () => {},
+              gameplayStart: () => track("GAME: Playing"),
+              gameplayStop: () => track("GAME: Stopped"),
+              gameLoadingFinished: () => track("GAME: Loaded"),
+              gameInteractive: () => track("GAME: Interactive"),
               setDebug: () => {}
           };
+
+          // --- THE PROXY NET ---
+          // This catches ANY undefined function the game tries to call and prevents a crash
+          window.PokiSDK = new Proxy(baseSDK, {
+              get: function(target, prop) {
+                  if (prop in target) {
+                      return target[prop]; // Return the normal function if it exists
+                  } else {
+                      track(`⚠️ SDK MISSING METHOD CAUGHT: ${prop}`);
+                      // Return a safe dummy function that won't crash the engine
+                      return function() { 
+                          track(`   -> Dummy executed for ${prop}`);
+                          return Promise.resolve(true); 
+                      };
+                  }
+              }
+          });
 
           window.rewardedBreak = window.PokiSDK.rewardedBreak;
           window.commercialBreak = window.PokiSDK.commercialBreak;
@@ -99,7 +102,7 @@
   </head>
   <body onload="fixCanvasSize()">
     <button id="log-btn" onclick="copyHeistLog()">💾 LOG</button>
-    <canvas id="unity-canvas"></canvas>
+    <canvas id="unity-canvas" tabindex="1"></canvas>
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
       createUnityInstance(document.querySelector("#unity-canvas"), {
@@ -110,6 +113,9 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3"
+      }).then((instance) => {
+          // Keep a reference to force wake-ups if needed
+          window.unityGame = instance;
       });
     </script>
   </body>
