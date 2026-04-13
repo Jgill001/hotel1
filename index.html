@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel</title>
+    <title>My Perfect Hotel - The Ghost File</title>
     <link rel="icon" href="data:,">
     
     <style>
@@ -12,22 +12,43 @@
     </style>
 
     <script>
-      // THE URL INJECTOR
-      // This physically adds "?poki.com" to your browser's URL bar without reloading the page.
-      // When the C# anti-cheat reads the URL, it will see "poki.com" and allow the ad to process.
+      // 1. URL Injector (Anti-Cheat Bypass)
       if (!window.location.href.includes("poki.com")) {
           window.history.replaceState({}, '', window.location.pathname + '?poki.com');
       }
 
-      // Traffic Redirector
+      // 2. THE GHOST FILE (A perfectly valid, 0-second silent WAV file)
+      const tinyWav = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
+      // 3. Network Interceptor
       const originalFetch = window.fetch;
       window.fetch = async function(input, init) {
           let url = typeof input === 'string' ? input : (input.url ? input.url : input);
+          
+          // 🚨 THE FIX: Catch the bad audio request and feed it the Ghost File
+          if (typeof url === 'string' && url.endsWith('undefined')) {
+              console.log("👻 Caught fetch for 'undefined'! Serving silent audio.");
+              return originalFetch(tinyWav);
+          }
+
           if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
               const parts = url.split('StreamingAssets');
               return originalFetch("./StreamingAssets" + parts[parts.length - 1], init);
           }
           return originalFetch(input, init);
+      };
+
+      const originalOpen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function(method, url) {
+          // 🚨 THE FIX: Catch XHR requests for 'undefined'
+          if (typeof url === 'string' && url.endsWith('undefined')) {
+              console.log("👻 Caught XHR for 'undefined'! Serving silent audio.");
+              url = tinyWav;
+          } else if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
+              const parts = url.split('StreamingAssets');
+              url = "./StreamingAssets" + parts[parts.length - 1];
+          }
+          return originalOpen.apply(this, arguments);
       };
       
       window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
