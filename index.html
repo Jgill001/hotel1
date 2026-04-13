@@ -2,71 +2,91 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>My Perfect Hotel - The Ghost File</title>
-    <link rel="icon" href="data:,">
-    
+    <title>My Perfect Hotel - Debug Remote</title>
     <style>
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
-      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
+      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; }
+      #unity-canvas { width: 100vw; height: 100vh; display: block; }
+      
+      /* The Remote Control Panel */
+      #debug-remote {
+        position: absolute; top: 10px; right: 10px; z-index: 99999;
+        background: rgba(0,0,0,0.85); color: #00FF00; padding: 15px;
+        border: 2px solid #00FF00; border-radius: 8px; font-family: monospace;
+        width: 250px; box-shadow: 0 0 15px rgba(0,255,0,0.3);
+      }
+      .debug-btn {
+        width: 100%; margin-top: 10px; padding: 8px; cursor: pointer;
+        background: #222; color: #00FF00; border: 1px solid #00FF00;
+        font-weight: bold; text-transform: uppercase;
+      }
+      .debug-btn:hover { background: #00FF00; color: #000; }
+      #log-box { font-size: 10px; height: 100px; overflow-y: auto; margin-top: 10px; border-top: 1px solid #333; padding-top: 5px; }
     </style>
 
     <script>
-      // 1. URL Injector (Anti-Cheat Bypass)
-      if (!window.location.href.includes("poki.com")) {
-          window.history.replaceState({}, '', window.location.pathname + '?poki.com');
+      window.PokiSDK = {
+          init: () => Promise.resolve({adblocked: false}),
+          commercialBreak: () => Promise.resolve(false),
+          rewardedBreak: () => {
+              addLog("📡 Game requested Ad!");
+              return new Promise(resolve => {
+                  window._currentAdResolve = resolve; // Save the "Success" trigger
+                  addLog("⚠️ Waiting for Resolve...");
+              });
+          }
+      };
+      window.rewardedBreak = window.PokiSDK.rewardedBreak;
+
+      function addLog(msg) {
+          const lb = document.getElementById('log-box');
+          if (lb) { lb.innerHTML += `<div>${msg}</div>`; lb.scrollTop = lb.scrollHeight; }
+          console.log(msg);
       }
 
-      // 2. THE GHOST FILE (A perfectly valid, 0-second silent WAV file)
-      const tinyWav = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-
-      // 3. Network Interceptor
-      const originalFetch = window.fetch;
-      window.fetch = async function(input, init) {
-          let url = typeof input === 'string' ? input : (input.url ? input.url : input);
+      // --- THE BRUTE FORCE TRIGGER ---
+      // We try to find common Unity objects and force them to show the ad UI
+      function forceShowAdUI() {
+          if (!window.uInst) return addLog("❌ Game not loaded yet!");
+          addLog("🚀 Brute-forcing Ad UI...");
           
-          // 🚨 THE FIX: Catch the bad audio request and feed it the Ghost File
-          if (typeof url === 'string' && url.endsWith('undefined')) {
-              console.log("👻 Caught fetch for 'undefined'! Serving silent audio.");
-              return originalFetch(tinyWav);
-          }
+          const targets = [
+              {obj: "AdsManager", meth: "ShowRewarded"},
+              {obj: "PokiUnitySDK", meth: "rewardedBreak"},
+              {obj: "AdManager", meth: "ShowRewardVideo"},
+              {obj: "Bridge", meth: "ShowAd"}
+          ];
 
-          if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
-              const parts = url.split('StreamingAssets');
-              return originalFetch("./StreamingAssets" + parts[parts.length - 1], init);
-          }
-          return originalFetch(input, init);
-      };
+          targets.forEach(t => {
+              try { window.uInst.SendMessage(t.obj, t.meth); } catch(e) {}
+          });
+      }
 
-      const originalOpen = XMLHttpRequest.prototype.open;
-      XMLHttpRequest.prototype.open = function(method, url) {
-          // 🚨 THE FIX: Catch XHR requests for 'undefined'
-          if (typeof url === 'string' && url.endsWith('undefined')) {
-              console.log("👻 Caught XHR for 'undefined'! Serving silent audio.");
-              url = tinyWav;
-          } else if (typeof url === 'string' && (url.includes('poki') || url.includes('StreamingAssets'))) {
-              const parts = url.split('StreamingAssets');
-              url = "./StreamingAssets" + parts[parts.length - 1];
+      // --- THE MANUAL OVERRIDE ---
+      // This forces the "Success" signal into the engine
+      function forceRewardSuccess() {
+          if (window._currentAdResolve) {
+              addLog("✅ FORCING SUCCESS PAYLOAD...");
+              window._currentAdResolve(true);
+              window._currentAdResolve = null;
+          } else {
+              addLog("❓ No ad is currently active.");
           }
-          return originalOpen.apply(this, arguments);
-      };
-      
-      window.Pointer_stringify = function(ptr) { return window.UTF8ToString ? window.UTF8ToString(ptr) : "Legacy"; };
+      }
     </script>
-
-    <script src="./poki-sdk.js"></script>
   </head>
   <body>
-    <canvas id="unity-canvas" tabindex="1"></canvas>
+
+    <div id="debug-remote">
+      <div style="text-align:center; border-bottom:1px solid #00FF00; padding-bottom:5px;">DEBUG REMOTE</div>
+      <button class="debug-btn" onclick="forceShowAdUI()">Try Force Open Ad</button>
+      <button class="debug-btn" onclick="forceRewardSuccess()" style="border-color: #ffcc00; color: #ffcc00;">Force Success (Override)</button>
+      <div id="log-box"></div>
+    </div>
+
+    <canvas id="unity-canvas"></canvas>
+
     <script src="Build/ea153e321edf23b9a40b38d65ce41d01.loader.js"></script>
     <script>
-      function fixCanvasSize() {
-          const canvas = document.querySelector("#unity-canvas");
-          if (canvas) { canvas.style.height = window.innerHeight + "px"; canvas.style.width = window.innerWidth + "px"; }
-      }
-      window.addEventListener('resize', fixCanvasSize);
-      fixCanvasSize();
-
       createUnityInstance(document.querySelector("#unity-canvas"), {
         dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
         frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
@@ -75,6 +95,9 @@
         companyName: "master",
         productName: "My Hotel",
         productVersion: "1.0.3"
+      }).then((instance) => {
+          window.uInst = instance;
+          addLog("🟢 Unity Engine Ready.");
       });
     </script>
   </body>
