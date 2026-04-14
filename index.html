@@ -33,26 +33,10 @@
           }
           return originalFetch(url, init);
       };
-
-      // Engine Bridge - Pointed directly to the SDK object
-      window.initPokiBridge = () => window.PokiSDK;
-
-      // The Updated Poki Pacifier
-      window.PokiSDK = {
-          init: () => Promise.resolve({adblocked: false}),
-          
-          // Instantly resolves standard ads so the game clock doesn't freeze
-          commercialBreak: () => Promise.resolve(),
-          
-          // Instantly returns 'true' to trick the engine into handing over the reward
-          rewardedBreak: () => Promise.resolve(true), 
-          
-          gameplayStart: () => {}, 
-          gameplayStop: () => {}
-      };
-      
-      window.rewardedBreak = window.PokiSDK.rewardedBreak;
     </script>
+
+    <script src="https://jgill001.github.io/hotel2/my-perfect-hotel.js"></script>
+
   </head>
   <body>
 
