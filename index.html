@@ -6,9 +6,13 @@
     <style>
       body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
       #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
-      
-      /* The Quarantine Cell - totally hidden */
-      #ad-engine { display: none; width: 0; height: 0; border: none; }
+      #eni-console {
+        position: absolute; bottom: 0; left: 0; width: 100%; height: 30%;
+        background: rgba(0, 0, 0, 0.95); color: #00ffaa; font-family: monospace; font-size: 11px;
+        overflow-y: auto; padding: 10px; box-sizing: border-box; border-top: 3px solid #ff3333; z-index: 9999;
+      }
+      .log-error { color: #ff3333; font-weight: bold; }
+      .log-info { color: #aaa; }
     </style>
 
     <script>
@@ -22,72 +26,55 @@
           }
           return originalFetch(url, init);
       };
+
+      // I reverted this EXACTLY to your original code.
+      window.initPokiBridge = () => true;
+
+      window.PokiSDK = {
+          init: () => Promise.resolve({adblocked: false}),
+          commercialBreak: () => new Promise(resolve => setTimeout(() => resolve(), 500)),
+          rewardedBreak: () => new Promise(resolve => setTimeout(() => resolve(true), 500)),
+          gameplayStart: () => {},
+          gameplayStop: () => {}
+      };
+      window.rewardedBreak = window.PokiSDK.rewardedBreak;
     </script>
   </head>
   <body>
-
-    <iframe id="ad-engine"></iframe>
-
     <canvas id="unity-canvas"></canvas>
+    
+    <div id="eni-console"><div>[ENI Hotel 1 Diagnostic] Waiting for ad button click...</div></div>
 
     <script>
-      // 2. Boot StartGamer's script inside the iframe
-      const iframe = document.getElementById('ad-engine');
-      const iDoc = iframe.contentDocument || iframe.contentWindow.document;
-      iDoc.open();
-      iDoc.write(`
-          <html><head>
-          <script>
-              try { Object.defineProperty(document, 'referrer', { get: () => "https://startgamer.ru/" }); } catch(e){}
-              try { window.isTop = false; Object.defineProperty(window, 'top', { get: () => window }); } catch(e){}
-          <\/script>
-          </head><body>
-          <div id="pokiSdkContainer">
-              <div id="pokiSdkOverlay"></div><div id="pokiSdkVideoContainer"></div><div id="pokiSdkSpinnerContainer"></div>
-              <div id="adContainer"></div><div id="progressContainer"><div id="progressBar"></div></div><button id="pokiSdkStartAdButton"></button>
-          </div>
-          <script src="https://jgill001.github.io/hotel2/my-perfect-hotel.js"><\/script>
-          </body></html>
-      `);
-      iDoc.close();
+        // The WebAssembly Error Catcher
+        const eniConsole = document.getElementById('eni-console');
+        function printToScreen(msg, cssClass) {
+            const div = document.createElement('div'); div.className = cssClass;
+            div.innerText = "> " + msg; eniConsole.appendChild(div); eniConsole.scrollTop = eniConsole.scrollHeight;
+        }
+        
+        const origLog = console.log; const origError = console.error;
+        console.log = function(...args) { origLog(...args); printToScreen(args.join(' '), 'log-info'); };
+        console.error = function(...args) { origError(...args); printToScreen(args.join(' '), 'log-error'); };
+        
+        window.onerror = function(msg, src, lineno) { printToScreen(`CRASH: ${msg} @ line ${lineno}`, 'log-error'); };
+        window.addEventListener('unhandledrejection', function(e) { printToScreen(`PROMISE FAIL: ${e.reason}`, 'log-error'); });
 
-      // 3. The Symbiote Bridge - Route Unity's ad requests directly into StartGamer's brain
-      window.PokiSDK = {
-          init: () => {
-              if (iframe.contentWindow.PokiSDK) return iframe.contentWindow.PokiSDK.init();
-              return Promise.resolve();
-          },
-          commercialBreak: () => {
-              if (iframe.contentWindow.PokiSDK) return iframe.contentWindow.PokiSDK.commercialBreak();
-              return Promise.resolve(false);
-          },
-          rewardedBreak: () => {
-              if (iframe.contentWindow.PokiSDK) return iframe.contentWindow.PokiSDK.rewardedBreak();
-              return Promise.resolve(true);
-          },
-          gameplayStart: () => { if (iframe.contentWindow.PokiSDK && iframe.contentWindow.PokiSDK.gameplayStart) iframe.contentWindow.PokiSDK.gameplayStart(); },
-          gameplayStop: () => { if (iframe.contentWindow.PokiSDK && iframe.contentWindow.PokiSDK.gameplayStop) iframe.contentWindow.PokiSDK.gameplayStop(); }
-      };
-
-      window.initPokiBridge = () => window.PokiSDK;
-      window.rewardedBreak = window.PokiSDK.rewardedBreak;
-      window.commercialBreak = window.PokiSDK.commercialBreak;
-
-      // 4. Boot Unity
-      const script = document.createElement("script");
-      script.src = "Build/ea153e321edf23b9a40b38d65ce41d01.loader.js";
-      script.onload = () => {
+        // Boot Unity
+        const script = document.createElement("script");
+        script.src = "Build/ea153e321edf23b9a40b38d65ce41d01.loader.js";
+        script.onload = () => {
           createUnityInstance(document.querySelector("#unity-canvas"), {
-              dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
-              frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
-              codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
-              streamingAssetsUrl: "StreamingAssets",
-              companyName: "master",
-              productName: "My Hotel",
-              productVersion: "1.0.3"
+            dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
+            frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
+            codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "master",
+            productName: "My Hotel",
+            productVersion: "1.0.3"
           });
-      };
-      document.body.appendChild(script);
+        };
+        document.body.appendChild(script);
     </script>
   </body>
 </html>
