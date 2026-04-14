@@ -4,26 +4,22 @@
     <meta charset="utf-8">
     <title>My Perfect Hotel</title>
     <style>
-      body { 
-        padding: 0; 
-        margin: 0; 
-        background-color: #00C565; 
-        overflow: hidden; 
-        width: 100vw; 
-        height: 100dvh; 
-        position: fixed; 
-      }
-      #unity-canvas { 
-        width: 100vw; 
-        height: 100dvh; 
-        background: #00C565; 
-        display: block; 
-        outline: none; 
-      }
+      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
+      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
+      
+      /* Hide StartGamer's dummy ad players so they don't ruin the game screen */
+      #pokiSdkContainer { display: none !important; pointer-events: none; }
     </style>
 
     <script>
-      // Asset Redirector - Essential for loading files from GitHub
+      // 1. THE DEEP COVER SPOOF (To stop StartGamer's script from panicking)
+      if (!window.location.href.includes("startgamer.ru")) {
+          window.history.replaceState({}, '', '?poki.com&startgamer.ru');
+      }
+      try { Object.defineProperty(document, 'referrer', { get: function() { return "https://startgamer.ru/game/31434"; } }); } catch(e) {}
+      try { window.isTop = false; Object.defineProperty(window, 'top', { get: function() { return { location: { href: "https://startgamer.ru/" } }; } }); } catch(e) {}
+
+      // 2. Asset Redirector
       const originalFetch = window.fetch;
       window.fetch = async function(input, init) {
           let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -39,6 +35,15 @@
 
   </head>
   <body>
+
+    <div id="pokiSdkContainer">
+        <div id="pokiSdkOverlay"></div>
+        <div id="pokiSdkVideoContainer"></div>
+        <div id="pokiSdkSpinnerContainer"></div>
+        <div id="adContainer"></div>
+        <div id="progressContainer"><div id="progressBar"></div></div>
+        <button id="pokiSdkStartAdButton"></button>
+    </div>
 
     <canvas id="unity-canvas"></canvas>
 
