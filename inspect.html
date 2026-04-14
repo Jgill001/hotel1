@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>ENI Inspector</title>
+    <style>
+        body { background: #111; color: #00ffaa; font-family: monospace; padding: 20px; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <div id="output">Loading and extracting StartGamer's obfuscated code...</div>
+
+    <script>
+        // 1. Pad the sandbox so their script doesn't crash on boot
+        const dummies = ['pokiSdkContainer', 'pokiSdkOverlay', 'pokiSdkVideoContainer', 'pokiSdkSpinnerContainer', 'adContainer', 'progressContainer', 'progressBar', 'pokiSdkStartAdButton'];
+        dummies.forEach(id => {
+            let el = document.createElement('div'); el.id = id; el.style.display = 'none';
+            document.body.appendChild(el);
+        });
+
+        // Spoof URL so it feels safe
+        try { Object.defineProperty(document, 'referrer', { get: () => "https://startgamer.ru/" }); } catch(e){}
+
+        // 2. Load their obfuscated script
+        const script = document.createElement('script');
+        script.src = 'https://jgill001.github.io/hotel2/my-perfect-hotel.js';
+        
+        script.onload = () => {
+            // Give it 1 second to unpack itself in memory
+            setTimeout(() => {
+                const out = document.getElementById('output');
+                if (window.PokiSDK) {
+                    out.innerText = "=== STARTGAMER POKI SDK EXTRACTED ===\n\n";
+                    
+                    if (window.PokiSDK.rewardedBreak) {
+                        out.innerText += "--- REWARDED BREAK LOGIC ---\n";
+                        out.innerText += window.PokiSDK.rewardedBreak.toString() + "\n\n";
+                    }
+                    
+                    if (window.PokiSDK.commercialBreak) {
+                        out.innerText += "--- COMMERCIAL BREAK LOGIC ---\n";
+                        out.innerText += window.PokiSDK.commercialBreak.toString() + "\n\n";
+                    }
+
+                    if (window.PokiSDK.init) {
+                        out.innerText += "--- INIT LOGIC ---\n";
+                        out.innerText += window.PokiSDK.init.toString() + "\n\n";
+                    }
+                } else {
+                    out.innerText = "Error: window.PokiSDK was not created. They might be hiding it under a different variable name.";
+                }
+            }, 1000);
+        };
+        
+        script.onerror = () => document.getElementById('output').innerText = "Failed to download my-perfect-hotel.js";
+        document.body.appendChild(script);
+    </script>
+</body>
+</html>
