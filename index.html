@@ -12,7 +12,7 @@
     </style>
 
     <script>
-      // 1. THE DEEP COVER SPOOF (To stop StartGamer's script from panicking)
+      // 1. THE DEEP COVER SPOOF
       if (!window.location.href.includes("startgamer.ru")) {
           window.history.replaceState({}, '', '?poki.com&startgamer.ru');
       }
@@ -30,9 +30,6 @@
           return originalFetch(url, init);
       };
     </script>
-
-    <script src="https://jgill001.github.io/hotel2/my-perfect-hotel.js"></script>
-
   </head>
   <body>
 
@@ -44,6 +41,8 @@
         <div id="progressContainer"><div id="progressBar"></div></div>
         <button id="pokiSdkStartAdButton"></button>
     </div>
+
+    <script src="https://jgill001.github.io/hotel2/my-perfect-hotel.js"></script>
 
     <canvas id="unity-canvas"></canvas>
 
