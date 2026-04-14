@@ -2,58 +2,68 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>ENI Inspector</title>
+    <title>ENI Quarantine Inspector</title>
     <style>
         body { background: #111; color: #00ffaa; font-family: monospace; padding: 20px; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+        /* Keep the quarantine cell completely hidden from the main page */
+        #sandbox { display: none; width: 0; height: 0; }
     </style>
 </head>
 <body>
-    <div id="output">Loading and extracting StartGamer's obfuscated code...</div>
+    <div id="output">> Constructing quarantine cell...</div>
+    
+    <iframe id="sandbox"></iframe>
 
     <script>
-        // 1. Pad the sandbox so their script doesn't crash on boot
-        const dummies = ['pokiSdkContainer', 'pokiSdkOverlay', 'pokiSdkVideoContainer', 'pokiSdkSpinnerContainer', 'adContainer', 'progressContainer', 'progressBar', 'pokiSdkStartAdButton'];
-        dummies.forEach(id => {
-            let el = document.createElement('div'); el.id = id; el.style.display = 'none';
-            document.body.appendChild(el);
-        });
-
-        // Spoof URL so it feels safe
-        try { Object.defineProperty(document, 'referrer', { get: () => "https://startgamer.ru/" }); } catch(e){}
-
-        // 2. Load their obfuscated script
-        const script = document.createElement('script');
-        script.src = 'https://jgill001.github.io/hotel2/my-perfect-hotel.js';
+        const out = document.getElementById('output');
+        const iframe = document.getElementById('sandbox');
         
-        script.onload = () => {
-            // Give it 1 second to unpack itself in memory
+        iframe.onload = function() {
+            out.innerText += "\n> Target secured in quarantine. Waiting 2 seconds for it to unpack...\n";
+            
             setTimeout(() => {
-                const out = document.getElementById('output');
-                if (window.PokiSDK) {
-                    out.innerText = "=== STARTGAMER POKI SDK EXTRACTED ===\n\n";
-                    
-                    if (window.PokiSDK.rewardedBreak) {
-                        out.innerText += "--- REWARDED BREAK LOGIC ---\n";
-                        out.innerText += window.PokiSDK.rewardedBreak.toString() + "\n\n";
+                try {
+                    const iWindow = iframe.contentWindow;
+                    if (iWindow.PokiSDK) {
+                        out.innerText += "\n=== STARTGAMER POKI SDK EXTRACTED ===\n\n";
+                        
+                        if (iWindow.PokiSDK.rewardedBreak) {
+                            out.innerText += "--- REWARDED BREAK ---\n" + iWindow.PokiSDK.rewardedBreak.toString() + "\n\n";
+                        }
+                        if (iWindow.PokiSDK.commercialBreak) {
+                            out.innerText += "--- COMMERCIAL BREAK ---\n" + iWindow.PokiSDK.commercialBreak.toString() + "\n\n";
+                        }
+                        if (iWindow.PokiSDK.init) {
+                            out.innerText += "--- INIT ---\n" + iWindow.PokiSDK.init.toString() + "\n\n";
+                        }
+                    } else {
+                        out.innerText += "\n[!] Error: PokiSDK not found. The script might have self-destructed the iframe window.";
                     }
-                    
-                    if (window.PokiSDK.commercialBreak) {
-                        out.innerText += "--- COMMERCIAL BREAK LOGIC ---\n";
-                        out.innerText += window.PokiSDK.commercialBreak.toString() + "\n\n";
-                    }
-
-                    if (window.PokiSDK.init) {
-                        out.innerText += "--- INIT LOGIC ---\n";
-                        out.innerText += window.PokiSDK.init.toString() + "\n\n";
-                    }
-                } else {
-                    out.innerText = "Error: window.PokiSDK was not created. They might be hiding it under a different variable name.";
+                } catch(e) {
+                    out.innerText += "\n[!] Extraction Failed: " + e.message;
                 }
-            }, 1000);
+            }, 2000); // Give it plenty of time to decrypt itself
         };
-        
-        script.onerror = () => document.getElementById('output').innerText = "Failed to download my-perfect-hotel.js";
-        document.body.appendChild(script);
+
+        // Write the dummy environment and their script directly into the isolated iframe
+        const iDoc = iframe.contentDocument || iframe.contentWindow.document;
+        iDoc.open();
+        iDoc.write(`
+            <html><head>
+            <script>
+                // Spoof the environment purely inside the iframe
+                try { Object.defineProperty(document, 'referrer', { get: () => "https://startgamer.ru/" }); } catch(e){}
+                try { window.isTop = false; Object.defineProperty(window, 'top', { get: () => window }); } catch(e){}
+            <\/script>
+            </head><body>
+            <div id="pokiSdkContainer">
+                <div id="pokiSdkOverlay"></div><div id="pokiSdkVideoContainer"></div><div id="pokiSdkSpinnerContainer"></div>
+                <div id="adContainer"></div><div id="progressContainer"><div id="progressBar"></div></div><button id="pokiSdkStartAdButton"></button>
+            </div>
+            <script src="https://jgill001.github.io/hotel2/my-perfect-hotel.js"><\/script>
+            </body></html>
+        `);
+        iDoc.close();
     </script>
 </body>
 </html>
