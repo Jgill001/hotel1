@@ -4,42 +4,50 @@
     <meta charset="utf-8">
     <title>My Perfect Hotel</title>
     <style>
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
-      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
+      body { background-color: #00C565; margin: 0; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
+      #unity-canvas { width: 100%; height: 100%; display: block; }
+      #pokiSdkContainer { display: none !important; }
       
-      /* Hide StartGamer's dummy ad players so they don't ruin the game screen */
-      #pokiSdkContainer { display: none !important; pointer-events: none; }
+      /* The Fatal Error Catcher */
+      #eni-console {
+        position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh;
+        background: rgba(0,0,0,0.95); color: #ff3333; font-family: monospace; font-size: 14px;
+        padding: 20px; box-sizing: border-box; overflow-y: auto; z-index: 99999; display: none;
+      }
     </style>
 
     <script>
-      // 1. THE DEEP COVER SPOOF
+      // 1. FATAL ERROR LISTENER (Must be the very first thing to run)
+      window.addEventListener('error', function(e) {
+        const consoleDiv = document.getElementById('eni-console');
+        if (consoleDiv) {
+          consoleDiv.innerHTML += `<br><br>> CRASH: ${e.message}<br>> FILE: ${e.filename}<br>> LINE: ${e.lineno}`;
+          consoleDiv.style.display = 'block';
+        }
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        const consoleDiv = document.getElementById('eni-console');
+        if (consoleDiv) {
+          consoleDiv.innerHTML += `<br><br>> PROMISE FAIL: ${e.reason}`;
+          consoleDiv.style.display = 'block';
+        }
+      });
+
+      // 2. THE DEEP COVER SPOOF
       if (!window.location.href.includes("startgamer.ru")) {
           window.history.replaceState({}, '', '?poki.com&startgamer.ru');
       }
       try { Object.defineProperty(document, 'referrer', { get: function() { return "https://startgamer.ru/game/31434"; } }); } catch(e) {}
       try { window.isTop = false; Object.defineProperty(window, 'top', { get: function() { return { location: { href: "https://startgamer.ru/" } }; } }); } catch(e) {}
-
-      // 2. Asset Redirector
-      const originalFetch = window.fetch;
-      window.fetch = async function(input, init) {
-          let url = typeof input === 'string' ? input : (input.url ? input.url : input);
-          if (url.includes('poki') || url.includes('StreamingAssets')) {
-              const parts = url.split('StreamingAssets');
-              url = "./StreamingAssets" + parts[parts.length - 1];
-          }
-          return originalFetch(url, init);
-      };
     </script>
   </head>
   <body>
 
+    <div id="eni-console">> Diagnostic Terminal Active. Waiting for crash...</div>
+
     <div id="pokiSdkContainer">
-        <div id="pokiSdkOverlay"></div>
-        <div id="pokiSdkVideoContainer"></div>
-        <div id="pokiSdkSpinnerContainer"></div>
-        <div id="adContainer"></div>
-        <div id="progressContainer"><div id="progressBar"></div></div>
-        <button id="pokiSdkStartAdButton"></button>
+        <div id="pokiSdkOverlay"></div><div id="pokiSdkVideoContainer"></div><div id="pokiSdkSpinnerContainer"></div>
+        <div id="adContainer"></div><div id="progressContainer"><div id="progressBar"></div></div><button id="pokiSdkStartAdButton"></button>
     </div>
 
     <script src="https://jgill001.github.io/hotel2/my-perfect-hotel.js"></script>
