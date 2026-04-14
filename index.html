@@ -34,16 +34,23 @@
           return originalFetch(url, init);
       };
 
-      // Engine Bridge - Essential to prevent initialization errors
-      window.initPokiBridge = () => true;
+      // Engine Bridge - Pointed directly to the SDK object
+      window.initPokiBridge = () => window.PokiSDK;
 
+      // The Updated Poki Pacifier
       window.PokiSDK = {
           init: () => Promise.resolve({adblocked: false}),
+          
+          // Instantly resolves standard ads so the game clock doesn't freeze
           commercialBreak: () => Promise.resolve(),
-          rewardedBreak: () => new Promise(() => {}), // Silent wait if an ad is clicked
+          
+          // Instantly returns 'true' to trick the engine into handing over the reward
+          rewardedBreak: () => Promise.resolve(true), 
+          
           gameplayStart: () => {}, 
           gameplayStop: () => {}
       };
+      
       window.rewardedBreak = window.PokiSDK.rewardedBreak;
     </script>
   </head>
