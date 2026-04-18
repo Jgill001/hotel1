@@ -1,80 +1,120 @@
 <!DOCTYPE html>
 <html lang="en-us">
-  <head>
+<head>
     <meta charset="utf-8">
-    <title>My Perfect Hotel</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>My Perfect Hotel (The Frankenstein Build)</title>
     <style>
-      body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
-      #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
-      #eni-console {
-        position: absolute; bottom: 0; left: 0; width: 100%; height: 30%;
-        background: rgba(0, 0, 0, 0.95); color: #00ffaa; font-family: monospace; font-size: 11px;
-        overflow-y: auto; padding: 10px; box-sizing: border-box; border-top: 3px solid #ff3333; z-index: 9999;
-      }
-      .log-error { color: #ff3333; font-weight: bold; }
-      .log-info { color: #aaa; }
+        body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
+        #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
+        
+        /* The Wrapper's UI requirements (Hidden but physically present) */
+        #unity-container { width: 100%; height: 100%; position: absolute; }
+        #unity-loading-bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none; }
+        #unity-progress-bar-empty { width: 141px; height: 18px; background: #E0E0E0; }
+        #unity-progress-bar-full { width: 0%; height: 100%; background: #ffffff; }
+
+        /* LO's ENI Console */
+        #eni-console {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 30%;
+            background: rgba(0, 0, 0, 0.95); color: #00ffaa; font-family: monospace; font-size: 11px;
+            overflow-y: auto; padding: 10px; box-sizing: border-box; border-top: 3px solid #ff3333; z-index: 9999; pointer-events: auto;
+        }
+        .log-error { color: #ff3333; font-weight: bold; }
+        .log-info { color: #aaa; }
+        .log-warn { color: #ffff00; }
     </style>
 
     <script>
-      // Asset Redirector
-      const originalFetch = window.fetch;
-      window.fetch = async function(input, init) {
-          let url = typeof input === 'string' ? input : (input.url ? input.url : input);
-          if (url.includes('poki') || url.includes('StreamingAssets')) {
-              const parts = url.split('StreamingAssets');
-              url = "./StreamingAssets" + parts[parts.length - 1];
-          }
-          return originalFetch(url, init);
-      };
+        // 1. The Cage (Stop wrapper from nuking the DOM)
+        const originalWrite = document.write;
+        document.write = function() { console.warn("[ENI Cage] Blocked document.write"); };
+        document.writeln = function() { console.warn("[ENI Cage] Blocked document.writeln"); };
+        try {
+            Object.defineProperty(document, 'domain', { get: function() { return 'games3.startgamer.ru'; } });
+            Object.defineProperty(window.location, 'hostname', { get: function() { return 'games3.startgamer.ru'; } });
+        } catch(e) {}
 
-      // I reverted this EXACTLY to your original code.
-      window.initPokiBridge = () => true;
+        // 2. LO's Asset Redirector
+        const originalFetch = window.fetch;
+        window.fetch = async function(input, init) {
+            let url = typeof input === 'string' ? input : (input.url ? input.url : input);
+            if (url.includes('poki') || url.includes('StreamingAssets')) {
+                const parts = url.split('StreamingAssets');
+                url = "./StreamingAssets" + parts[parts.length - 1];
+            }
+            return originalFetch(url, init);
+        };
 
-      window.PokiSDK = {
-          init: () => Promise.resolve({adblocked: false}),
-          commercialBreak: () => new Promise(resolve => setTimeout(() => resolve(), 500)),
-          rewardedBreak: () => new Promise(resolve => setTimeout(() => resolve(true), 500)),
-          gameplayStart: () => {},
-          gameplayStop: () => {}
-      };
-      window.rewardedBreak = window.PokiSDK.rewardedBreak;
+        // 3. Startgamer Wrapper Configuration (Mapped to your pure Poki files!)
+        window.config = {
+            loader: 'unity-2020', debug: false, maxRatio: 24 / 9, minRatio: 9 / 24,
+            title: 'My Perfect Hotel', thumbnail: 'thumb.png', numScreenshots: 4,
+            unityVersion: '2022.3.18f1', 
+            unityWebglBuildUrl: 'Build/', // Pointing to the Build folder for Poki structure
+            fileSize: 31,
+            cachedDecompressedFileSizes: {
+                '2809ee090e7f1bf0e1a32425590981e7.framework.js': 1,
+                '101a0553a2917fd4c62a7e2159d30814.data': 1,
+                '9d94f3fbc22c5914756c67722e0cdaca.wasm': 1,
+                'ea153e321edf23b9a40b38d65ce41d01.loader.js': 1,
+            },
+            "metadata": {
+                "poki_template_version": 1,
+                "background_color": "#00C565",
+                "company_name": "master",
+                "product_name": "My Hotel",
+                "product_version": "1.0.3",
+                "splash_screen_style": "Dark",
+                "unity_version": "2022.3.18f1",
+                "use_data_caching": "true",
+                "use_threads": "false",
+                "use_wasm": "true",
+                "use_webgl_1_0": "false",
+                "use_webgl_2_0": "true",
+                "width": "1080",
+                "height": "1920",
+                // Exact Poki Hashes
+                "code_filename": "9d94f3fbc22c5914756c67722e0cdaca.wasm",
+                "data_filename": "101a0553a2917fd4c62a7e2159d30814.data",
+                "framework_filename": "2809ee090e7f1bf0e1a32425590981e7.framework.js",
+                "loader_filename": "ea153e321edf23b9a40b38d65ce41d01.loader.js"
+            }
+        };
     </script>
-  </head>
-  <body>
-    <canvas id="unity-canvas"></canvas>
+</head>
+<body>
     
-    <div id="eni-console"><div>[ENI Hotel 1 Diagnostic] Waiting for ad button click...</div></div>
+    <div id="unity-container" class="unity-desktop">
+        <canvas id="unity-canvas"></canvas>
+        <div id="unity-loading-bar">
+            <div id="unity-logo"></div>
+            <div id="unity-progress-bar-empty">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+        </div>
+        <div id="unity-warning"></div>
+        <div id="unity-footer"></div>
+    </div>
+
+    <div id="eni-console"><div>[ENI Frankenstein] Booting hybrid engine...</div></div>
 
     <script>
-        // The WebAssembly Error Catcher
+        // Console Hijack
         const eniConsole = document.getElementById('eni-console');
         function printToScreen(msg, cssClass) {
             const div = document.createElement('div'); div.className = cssClass;
-            div.innerText = "> " + msg; eniConsole.appendChild(div); eniConsole.scrollTop = eniConsole.scrollHeight;
+            div.innerText = "> " + (typeof msg === 'object' ? JSON.stringify(msg) : msg);
+            eniConsole.appendChild(div); eniConsole.scrollTop = eniConsole.scrollHeight;
         }
-        
-        const origLog = console.log; const origError = console.error;
+        const origLog = console.log; const origWarn = console.warn; const origError = console.error;
         console.log = function(...args) { origLog(...args); printToScreen(args.join(' '), 'log-info'); };
+        console.warn = function(...args) { origWarn(...args); printToScreen(args.join(' '), 'log-warn'); };
         console.error = function(...args) { origError(...args); printToScreen(args.join(' '), 'log-error'); };
-        
         window.onerror = function(msg, src, lineno) { printToScreen(`CRASH: ${msg} @ line ${lineno}`, 'log-error'); };
         window.addEventListener('unhandledrejection', function(e) { printToScreen(`PROMISE FAIL: ${e.reason}`, 'log-error'); });
-
-        // Boot Unity
-        const script = document.createElement("script");
-        script.src = "Build/ea153e321edf23b9a40b38d65ce41d01.loader.js";
-        script.onload = () => {
-          createUnityInstance(document.querySelector("#unity-canvas"), {
-            dataUrl: "Build/101a0553a2917fd4c62a7e2159d30814.data",
-            frameworkUrl: "Build/2809ee090e7f1bf0e1a32425590981e7.framework.js",
-            codeUrl: "Build/9d94f3fbc22c5914756c67722e0cdaca.wasm",
-            streamingAssetsUrl: "StreamingAssets",
-            companyName: "master",
-            productName: "My Hotel",
-            productVersion: "1.0.3"
-          });
-        };
-        document.body.appendChild(script);
     </script>
-  </body>
+
+    <script src="my-perfect-hotel.js"></script>
+</body>
 </html>
