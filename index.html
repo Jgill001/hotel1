@@ -3,14 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
     <title>My Perfect Hotel</title>
     <style>
-        body, html { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; top: 0; left: 0; }
+        /* Changed background to black for a cleaner cinematic edge if the browser glitches */
+        body, html { padding: 0; margin: 0; background-color: #000000; overflow: hidden; width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; touch-action: none; }
         
-        /* The Overrides: Force Unity to stretch to the edges and ignore its own letterboxing */
-        #unity-container { width: 100vw !important; height: 100dvh !important; position: absolute !important; top: 0 !important; left: 0 !important; margin: 0 !important; padding: 0 !important; }
-        #unity-canvas { width: 100vw !important; height: 100dvh !important; position: absolute !important; top: 0 !important; left: 0 !important; margin: 0 !important; padding: 0 !important; display: block !important; outline: none !important; background: #00C565; }
+        #unity-container { width: 100vw !important; height: 100vh !important; position: absolute !important; top: 0 !important; left: 0 !important; margin: 0 !important; padding: 0 !important; }
+        #unity-canvas { width: 100vw !important; height: 100vh !important; position: absolute !important; top: 0 !important; left: 0 !important; margin: 0 !important; padding: 0 !important; display: block !important; outline: none !important; background: #000000; }
         
         /* Hidden UI elements */
         #unity-loading-bar, #unity-warning, #unity-footer { display: none !important; }
@@ -51,7 +51,7 @@
             },
             "metadata": {
                 "poki_template_version": 1,
-                "background_color": "#00C565",
+                "background_color": "#000000",
                 "company_name": "master",
                 "product_name": "My Hotel",
                 "product_version": "1.0.3",
@@ -70,6 +70,24 @@
                 "loader_filename": "ea153e321edf23b9a40b38d65ce41d01.loader.js"
             }
         };
+
+        // 4. THE VIEWPORT SNIPER: Brute-force the canvas geometry every 100ms
+        setInterval(() => {
+            const canvas = document.getElementById('unity-canvas');
+            const container = document.getElementById('unity-container');
+            if (canvas) {
+                canvas.style.marginTop = '0px';
+                canvas.style.transform = 'none';
+                canvas.style.height = window.innerHeight + 'px';
+                canvas.style.width = window.innerWidth + 'px';
+            }
+            if (container) {
+                container.style.marginTop = '0px';
+                container.style.transform = 'none';
+                container.style.height = window.innerHeight + 'px';
+                container.style.width = window.innerWidth + 'px';
+            }
+        }, 100);
     </script>
 </head>
 <body>
