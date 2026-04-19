@@ -15,9 +15,56 @@
         #unity-canvas { width: 100%; height: 100%; display: block; outline: none; background-color: #000000; }
         
         #unity-loading-bar, #unity-warning, #unity-footer { display: none !important; }
+
+        /* ENI Asset Tracker UI */
+        #eni-tracker-btn {
+            position: absolute; top: 15px; right: 15px; z-index: 1000000;
+            background: rgba(0, 0, 0, 0.85); color: #00ffaa; border: 1px solid #00ffaa;
+            padding: 6px 12px; font-family: monospace; font-size: 12px; border-radius: 4px;
+            cursor: pointer; pointer-events: auto; text-shadow: 0 0 5px #00ffaa;
+        }
+        #eni-tracker-log {
+            position: absolute; top: 50px; right: 15px; z-index: 999999;
+            background: rgba(0, 0, 0, 0.95); color: #ff5555; border: 1px solid #ff3333;
+            width: 75vw; max-height: 40vh; overflow-y: auto; font-family: monospace; font-size: 10px;
+            padding: 8px; border-radius: 4px; display: none; pointer-events: auto; word-wrap: break-word;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .log-entry { border-bottom: 1px dashed #550000; margin-bottom: 5px; padding-bottom: 5px; }
     </style>
 
     <script>
+        // 0. The Tracker Logic Setup
+        window.eniLogAssetBuffer = [];
+        window.eniLogAsset = function(msg) {
+            const logBox = document.getElementById('eni-tracker-log');
+            const btn = document.getElementById('eni-tracker-btn');
+            
+            if (logBox && btn) {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerText = msg;
+                logBox.appendChild(entry);
+                logBox.scrollTop = logBox.scrollHeight;
+                
+                // Alert! Turn button red if closed
+                if (logBox.style.display !== 'block') {
+                    btn.style.color = '#ff3333';
+                    btn.style.borderColor = '#ff3333';
+                    btn.style.textShadow = '0 0 5px #ff3333';
+                }
+            } else {
+                window.eniLogAssetBuffer.push(msg); // Buffer if DOM isn't ready
+            }
+        };
+
+        // Listen for static file 404s (scripts, images)
+        window.addEventListener('error', function(e) {
+            if (e.target && (e.target.src || e.target.href)) {
+                window.eniLogAsset(`File Missing: ${e.target.src || e.target.href}`);
+            }
+        }, true);
+
         // 1. The Cage
         document.write = function() {};
         document.writeln = function() {};
@@ -26,7 +73,7 @@
             Object.defineProperty(window.location, 'hostname', { get: function() { return 'games3.startgamer.ru'; } });
         } catch(e) {}
 
-        // 2. Asset Redirector
+        // 2. Asset Redirector (Upgraded to catch 404s)
         const originalFetch = window.fetch;
         window.fetch = async function(input, init) {
             let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -34,7 +81,14 @@
                 const parts = url.split('StreamingAssets');
                 url = "./StreamingAssets" + parts[parts.length - 1];
             }
-            return originalFetch(url, init);
+            try {
+                const response = await originalFetch(url, init);
+                if (!response.ok) window.eniLogAsset(`HTTP ${response.status}: ${url}`);
+                return response;
+            } catch(e) {
+                window.eniLogAsset(`Network Fail: ${url}`);
+                throw e;
+            }
         };
 
         // 3. Poki Engine Configuration
@@ -71,6 +125,36 @@
                 "loader_filename": "ea153e321edf23b9a40b38d65ce41d01.loader.js"
             }
         };
+
+        // Inject the Tracker UI when the body is ready
+        window.addEventListener('DOMContentLoaded', () => {
+            const btn = document.createElement('div');
+            btn.id = 'eni-tracker-btn';
+            btn.innerText = '[+] Tracker';
+            
+            const logBox = document.createElement('div');
+            logBox.id = 'eni-tracker-log';
+
+            btn.onclick = () => {
+                if (logBox.style.display === 'none' || !logBox.style.display) {
+                    logBox.style.display = 'block';
+                    btn.innerText = '[-] Tracker';
+                    // Reset to green when opened
+                    btn.style.color = '#00ffaa'; 
+                    btn.style.borderColor = '#00ffaa';
+                    btn.style.textShadow = '0 0 5px #00ffaa';
+                } else {
+                    logBox.style.display = 'none';
+                    btn.innerText = '[+] Tracker';
+                }
+            };
+
+            document.body.appendChild(btn);
+            document.body.appendChild(logBox);
+
+            // Flush any errors that happened before the DOM loaded
+            window.eniLogAssetBuffer.forEach(msg => window.eniLogAsset(msg));
+        });
     </script>
 </head>
 <body>
