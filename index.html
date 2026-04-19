@@ -3,82 +3,29 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>My Perfect Hotel (Deep Diagnostics)</title>
+    <title>My Perfect Hotel</title>
     <style>
         body { padding: 0; margin: 0; background-color: #00C565; overflow: hidden; width: 100vw; height: 100dvh; position: fixed; }
         #unity-canvas { width: 100vw; height: 100dvh; background: #00C565; display: block; outline: none; }
         
+        /* Hidden UI elements to keep the wrapper happy */
         #unity-container { width: 100%; height: 100%; position: absolute; }
         #unity-loading-bar, #unity-warning, #unity-footer { display: none; }
-
-        /* The Eye of God Console */
-        #eni-console {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: 40%;
-            background: rgba(0, 0, 0, 0.95); color: #00ffaa; font-family: monospace; font-size: 10px;
-            overflow-y: auto; padding: 10px; box-sizing: border-box; border-top: 3px solid #ff3333; z-index: 999999; pointer-events: auto;
-        }
-        .log-error { color: #ff3333; font-weight: bold; }
-        .log-info { color: #aaa; }
-        .log-warn { color: #ffff00; }
-        .log-net { color: #00ccff; }
     </style>
 
     <script>
-        // 0. Setup the Console FIRST
-        let eniConsole;
-        window.onload = () => { eniConsole = document.getElementById('eni-console'); };
-        
-        function printToScreen(msg, cssClass) {
-            // Buffer it if the DOM isn't ready
-            if (!eniConsole) {
-                setTimeout(() => printToScreen(msg, cssClass), 100);
-                return;
-            }
-            const div = document.createElement('div'); div.className = cssClass;
-            div.innerText = "> " + (typeof msg === 'object' ? JSON.stringify(msg) : msg);
-            eniConsole.appendChild(div); eniConsole.scrollTop = eniConsole.scrollHeight;
-        }
-
-        const origLog = console.log, origWarn = console.warn, origError = console.error;
-        console.log = function(...args) { origLog(...args); printToScreen(args.join(' '), 'log-info'); };
-        console.warn = function(...args) { origWarn(...args); printToScreen(args.join(' '), 'log-warn'); };
-        console.error = function(...args) { origError(...args); printToScreen(args.join(' '), 'log-error'); };
-        
-        window.onerror = function(msg, url, line) { printToScreen(`CRASH: ${msg} @ ${url}:${line}`, 'log-error'); return false; };
-        window.addEventListener('unhandledrejection', function(e) { printToScreen(`PROMISE FAIL: ${e.reason}`, 'log-error'); });
-
-        // Catch silent resource loading errors (like missing JS files)
-        window.addEventListener('error', function(e) {
-            if (e.target && e.target.src) {
-                printToScreen(`NETWORK FAIL: Could not load resource: ${e.target.src}`, 'log-error');
-            }
-        }, true); // Use capture phase
-
-        // 1. The Cage
-        document.write = function() { console.warn("[ENI Cage] Blocked document.write"); };
-        document.writeln = function() { console.warn("[ENI Cage] Blocked document.writeln"); };
+        // 1. The Cage (Silent domain spoofing and document.write nullification)
+        document.write = function() {};
+        document.writeln = function() {};
         try {
             Object.defineProperty(document, 'domain', { get: function() { return 'games3.startgamer.ru'; } });
             Object.defineProperty(window.location, 'hostname', { get: function() { return 'games3.startgamer.ru'; } });
         } catch(e) {}
 
-        // 2. Track Dynamic Scripts and Redirect Fetch
-        const origCreateElement = document.createElement;
-        document.createElement = function(tagName) {
-            const el = origCreateElement.call(document, tagName);
-            if (tagName.toLowerCase() === 'script') {
-                // Monitor when the wrapper tries to load unity-2020.js or loader.js
-                setTimeout(() => {
-                    if (el.src) console.log(`[ENI] Wrapper is injecting script: ${el.src}`);
-                }, 10);
-            }
-            return el;
-        };
-
+        // 2. LO's Asset Redirector
         const originalFetch = window.fetch;
         window.fetch = async function(input, init) {
             let url = typeof input === 'string' ? input : (input.url ? input.url : input);
-            printToScreen(`FETCH: ${url}`, 'log-net');
             if (url.includes('poki') || url.includes('StreamingAssets')) {
                 const parts = url.split('StreamingAssets');
                 url = "./StreamingAssets" + parts[parts.length - 1];
@@ -86,7 +33,7 @@
             return originalFetch(url, init);
         };
 
-        // 3. Startgamer Wrapper Configuration
+        // 3. Poki Engine Configuration
         window.config = {
             loader: 'unity-2020', debug: false, maxRatio: 24 / 9, minRatio: 9 / 24,
             title: 'My Perfect Hotel', thumbnail: 'thumb.png', numScreenshots: 4,
@@ -128,8 +75,6 @@
         <div id="unity-loading-bar"><div id="unity-logo"></div><div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div></div>
         <div id="unity-warning"></div><div id="unity-footer"></div>
     </div>
-
-    <div id="eni-console"></div>
 
     <script src="my-perfect-hotel.js"></script>
 </body>
