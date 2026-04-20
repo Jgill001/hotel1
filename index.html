@@ -7,10 +7,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
     <title>My Perfect Hotel</title>
     <style>
-        /* A pure, clean cinematic black background */
         html, body { padding: 0; margin: 0; background-color: #000000; overflow: hidden; width: 100%; height: 100%; touch-action: none; }
         
-        /* Flexbox to perfectly center the Unity letterboxing */
         #unity-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; }
         #unity-canvas { width: 100%; height: 100%; display: block; outline: none; background-color: #000000; }
         
@@ -47,18 +45,16 @@
                 logBox.appendChild(entry);
                 logBox.scrollTop = logBox.scrollHeight;
                 
-                // Alert! Turn button red if closed
                 if (logBox.style.display !== 'block') {
                     btn.style.color = '#ff3333';
                     btn.style.borderColor = '#ff3333';
                     btn.style.textShadow = '0 0 5px #ff3333';
                 }
             } else {
-                window.eniLogAssetBuffer.push(msg); // Buffer if DOM isn't ready
+                window.eniLogAssetBuffer.push(msg);
             }
         };
 
-        // Listen for static file 404s (scripts, images)
         window.addEventListener('error', function(e) {
             if (e.target && (e.target.src || e.target.href)) {
                 window.eniLogAsset(`File Missing: ${e.target.src || e.target.href}`);
@@ -73,7 +69,7 @@
             Object.defineProperty(window.location, 'hostname', { get: function() { return 'games3.startgamer.ru'; } });
         } catch(e) {}
 
-        // 2. Asset Redirector (Upgraded to catch 404s)
+        // 2. Asset Redirector (Silenced 304s)
         const originalFetch = window.fetch;
         window.fetch = async function(input, init) {
             let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -83,7 +79,10 @@
             }
             try {
                 const response = await originalFetch(url, init);
-                if (!response.ok) window.eniLogAsset(`HTTP ${response.status}: ${url}`);
+                // Explicitly ignore 304 (Cached) and 0 (Opaque) status codes
+                if (!response.ok && response.status !== 304 && response.status !== 0) {
+                    window.eniLogAsset(`HTTP ${response.status}: ${url}`);
+                }
                 return response;
             } catch(e) {
                 window.eniLogAsset(`Network Fail: ${url}`);
@@ -126,7 +125,6 @@
             }
         };
 
-        // Inject the Tracker UI when the body is ready
         window.addEventListener('DOMContentLoaded', () => {
             const btn = document.createElement('div');
             btn.id = 'eni-tracker-btn';
@@ -139,7 +137,6 @@
                 if (logBox.style.display === 'none' || !logBox.style.display) {
                     logBox.style.display = 'block';
                     btn.innerText = '[-] Tracker';
-                    // Reset to green when opened
                     btn.style.color = '#00ffaa'; 
                     btn.style.borderColor = '#00ffaa';
                     btn.style.textShadow = '0 0 5px #00ffaa';
@@ -152,7 +149,6 @@
             document.body.appendChild(btn);
             document.body.appendChild(logBox);
 
-            // Flush any errors that happened before the DOM loaded
             window.eniLogAssetBuffer.forEach(msg => window.eniLogAsset(msg));
         });
     </script>
