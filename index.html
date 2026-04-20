@@ -6,21 +6,14 @@
     <script>
         if (window.location.search.includes('nuke=1')) {
             document.write('<div style="background:#000; color:#ff3333; font-family:monospace; padding:20px; font-size:14px; position:absolute; top:0; left:0; width:100%; height:100%; z-index:999999;">[ENI CACHE ASSASSIN]<br><br>Executing pre-boot cache wipe...<br>Please wait...</div>');
-            
             if ('caches' in window) {
-                caches.keys().then(function(names) {
-                    for (let name of names) caches.delete(name);
-                });
+                caches.keys().then(function(names) { for (let name of names) caches.delete(name); });
             }
-
             const req = indexedDB.deleteDatabase('UnityCache');
-            req.onsuccess = () => { 
-                window.location.href = window.location.pathname + '?v=' + Date.now(); 
-            };
+            req.onsuccess = () => { window.location.href = window.location.pathname + '?v=' + Date.now(); };
             req.onerror = () => { document.write('<br>ERROR: Could not wipe cache.'); };
-            req.onblocked = () => { document.write('<br>FATAL LOCK: Please completely close your mobile browser app and reopen.'); };
-            window.stop(); 
-            throw new Error("Halting execution for pre-boot wipe."); 
+            req.onblocked = () => { document.write('<br>FATAL LOCK: Please close browser app and reopen.'); };
+            window.stop(); throw new Error("Halting for wipe."); 
         }
     </script>
 
@@ -30,76 +23,87 @@
     <title>My Perfect Hotel</title>
     <style>
         html, body { padding: 0; margin: 0; background-color: #000000; overflow: hidden; width: 100%; height: 100%; touch-action: none; }
-        #unity-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; }
+        #unity-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; justify-content: center; align-items: center; }
         #unity-canvas { width: 100%; height: 100%; display: block; outline: none; background-color: #000000; }
         #unity-loading-bar, #unity-warning, #unity-footer { display: none !important; }
 
-        #eni-tracker-btn {
+        /* God Mode Terminal UI */
+        #eni-terminal-btn {
             position: absolute; top: 15px; right: 15px; z-index: 1000000;
-            background: rgba(0, 0, 0, 0.85); color: #00ffaa; border: 1px solid #00ffaa;
-            padding: 6px 12px; font-family: monospace; font-size: 12px; border-radius: 4px;
-            cursor: pointer; pointer-events: auto; text-shadow: 0 0 5px #00ffaa;
+            background: rgba(0, 0, 0, 0.85); color: #00ccff; border: 1px solid #00ccff;
+            padding: 8px 16px; font-family: monospace; font-size: 14px; border-radius: 4px;
+            cursor: pointer; pointer-events: auto; text-shadow: 0 0 5px #00ccff; font-weight: bold;
         }
-        #eni-tracker-log {
-            position: absolute; top: 50px; right: 15px; z-index: 999999;
-            background: rgba(0, 0, 0, 0.95); color: #ff5555; border: 1px solid #ff3333;
-            width: 75vw; max-height: 40vh; overflow-y: auto; font-family: monospace; font-size: 10px;
-            padding: 8px; border-radius: 4px; display: none; pointer-events: auto; word-wrap: break-word;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        #eni-terminal-overlay {
+            position: absolute; top: 60px; left: 5%; width: 90%; height: 80%; z-index: 999999;
+            background: rgba(0, 0, 0, 0.95); border: 2px solid #00ccff; border-radius: 6px;
+            display: none; flex-direction: column; pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
-        .log-entry { border-bottom: 1px dashed #550000; margin-bottom: 5px; padding-bottom: 5px; }
-        
-        .eni-menu-btn {
-            width: 100%; padding: 8px; margin-bottom: 10px; font-family: monospace;
-            font-weight: bold; cursor: pointer; border-radius: 4px;
+        #eni-terminal-logs {
+            flex-grow: 1; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 10px; word-wrap: break-word;
         }
-        #eni-nuke-btn { background: #440000; color: #ff3333; border: 1px solid #ff3333; }
-        #eni-nuke-btn:active { background: #ff3333; color: white; }
-        #eni-extract-btn { background: #004400; color: #00ffaa; border: 1px solid #00ffaa; }
-        #eni-extract-btn:active { background: #00ffaa; color: black; }
+        #eni-terminal-controls {
+            display: flex; gap: 10px; padding: 10px; border-top: 1px solid #333; background: #111; border-radius: 0 0 6px 6px;
+        }
+        .eni-btn { flex: 1; padding: 10px; font-family: monospace; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; }
+        #btn-nuke { background: #550000; color: #ff5555; } #btn-nuke:active { background: #ff5555; color: #fff; }
+        #btn-clear { background: #333; color: #aaa; } #btn-clear:active { background: #777; color: #fff; }
+
+        .log-info { color: #aaaaaa; border-bottom: 1px solid #222; padding: 3px 0; }
+        .log-warn { color: #ffcc00; border-bottom: 1px solid #222; padding: 3px 0; }
+        .log-error { color: #ff5555; border-bottom: 1px solid #222; padding: 3px 0; font-weight: bold; }
+        .log-sys { color: #00ccff; border-bottom: 1px solid #222; padding: 3px 0; font-style: italic; }
     </style>
 
     <script>
-        window.eniLogAssetBuffer = [];
-        window.eniLogAsset = function(msg) {
-            const logBox = document.getElementById('eni-tracker-log-content');
-            const btn = document.getElementById('eni-tracker-btn');
+        // --- GOD MODE INTERCEPTOR ---
+        window.eniBuffer = [];
+        window.eniLog = function(msg, type = 'info') {
+            const logsBox = document.getElementById('eni-terminal-logs');
+            const btn = document.getElementById('eni-terminal-btn');
             
-            if (logBox && btn) {
-                const entry = document.createElement('div');
-                entry.className = 'log-entry';
-                entry.innerText = msg;
-                logBox.appendChild(entry);
-                document.getElementById('eni-tracker-log').scrollTop = document.getElementById('eni-tracker-log').scrollHeight;
+            // Format objects
+            if (typeof msg === 'object') {
+                try { msg = JSON.stringify(msg); } catch(e) { msg = String(msg); }
+            }
+
+            if (logsBox && btn) {
+                const div = document.createElement('div');
+                div.className = 'log-' + type;
+                div.innerText = `[${type.toUpperCase()}] ${msg}`;
+                logsBox.appendChild(div);
+                logsBox.scrollTop = logsBox.scrollHeight;
                 
-                if (logBox.parentElement.style.display !== 'block' && msg.includes('Fail')) {
-                    btn.style.color = '#ff3333';
-                    btn.style.borderColor = '#ff3333';
-                    btn.style.textShadow = '0 0 5px #ff3333';
+                if (document.getElementById('eni-terminal-overlay').style.display !== 'flex' && type === 'error') {
+                    btn.style.color = '#ff5555'; btn.style.borderColor = '#ff5555'; btn.style.textShadow = '0 0 5px #ff5555';
                 }
             } else {
-                window.eniLogAssetBuffer.push(msg);
+                window.eniBuffer.push({msg, type});
             }
         };
 
+        // Hijack native console
+        const oLog = console.log, oWarn = console.warn, oErr = console.error;
+        console.log = function(...args) { oLog(...args); window.eniLog(args.join(' '), 'info'); };
+        console.warn = function(...args) { oWarn(...args); window.eniLog(args.join(' '), 'warn'); };
+        console.error = function(...args) { oErr(...args); window.eniLog(args.join(' '), 'error'); };
+
+        window.onerror = function(msg, url, line) { window.eniLog(`CRASH: ${msg} at line ${line}`, 'error'); return false; };
+        window.addEventListener('unhandledrejection', function(e) { window.eniLog(`PROMISE FAIL: ${e.reason}`, 'error'); });
+
+        // Hijack IDB
         const origIDBGet = IDBObjectStore.prototype.get;
         IDBObjectStore.prototype.get = function(key) {
             try {
                 if (this.transaction && this.transaction.db && this.transaction.db.name === 'UnityCache') {
-                    let urlStr = typeof key === 'string' ? key : (key.url ? key.url : 'unknown_blob');
-                    let shortName = urlStr.split('/').pop().split('?')[0]; 
-                    window.eniLogAsset(`[Cache Read] ${shortName}`);
+                    let shortName = (typeof key === 'string' ? key : (key.url ? key.url : 'blob')).split('/').pop().split('?')[0]; 
+                    window.eniLog(`Cache Read: ${shortName}`, 'sys');
                 }
             } catch(e) {}
             return origIDBGet.apply(this, arguments);
         };
 
-        window.addEventListener('error', function(e) {
-            if (e.target && (e.target.src || e.target.href)) {
-                window.eniLogAsset(`File Missing: ${e.target.src || e.target.href}`);
-            }
-        }, true);
-
+        // The Cage
         document.write = function() {};
         document.writeln = function() {};
         try {
@@ -107,34 +111,27 @@
             Object.defineProperty(window.location, 'hostname', { get: function() { return 'games3.startgamer.ru'; } });
         } catch(e) {}
 
-        const ENI_CACHE_VERSION = "fix_1"; 
-        
+        // Asset Redirector
         const originalFetch = window.fetch;
         window.fetch = async function(input, init) {
             let url = typeof input === 'string' ? input : (input.url ? input.url : input);
-            
             if (url.includes('poki') || url.includes('StreamingAssets')) {
                 const parts = url.split('StreamingAssets');
-                let cleanUrl = "./StreamingAssets" + parts[parts.length - 1];
-                
-                if (cleanUrl.includes('.bundle') || cleanUrl.includes('.hash') || cleanUrl.includes('.json')) {
-                    cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + 'cv=' + ENI_CACHE_VERSION;
-                }
-                url = cleanUrl;
+                url = "./StreamingAssets" + parts[parts.length - 1] + "?cv=godmode_1";
             }
-
             try {
                 const response = await originalFetch(url, init);
                 if (!response.ok && response.status !== 304 && response.status !== 0) {
-                    window.eniLogAsset(`HTTP ${response.status}: ${url.split('/').pop().split('?')[0]}`);
+                    window.eniLog(`HTTP ${response.status}: ${url.split('/').pop().split('?')[0]}`, 'error');
                 }
                 return response;
             } catch(e) {
-                window.eniLogAsset(`Network Fail: ${url.split('/').pop().split('?')[0]}`);
+                window.eniLog(`Network Fetch Fail: ${url.split('/').pop().split('?')[0]}`, 'error');
                 throw e;
             }
         };
 
+        // Unity Config
         window.config = {
             loader: 'unity-2020', debug: false, maxRatio: 24 / 9, minRatio: 9 / 24,
             title: 'My Perfect Hotel', thumbnail: 'thumb.png', numScreenshots: 4,
@@ -150,7 +147,7 @@
             "metadata": {
                 "poki_template_version": 1,
                 "background_color": "#000000",
-                "company_name": "master", // Reverted so we look at the broken save!
+                "company_name": "master", 
                 "product_name": "My Hotel",
                 "product_version": "1.0.3",
                 "splash_screen_style": "Dark",
@@ -169,93 +166,53 @@
             }
         };
 
+        // Inject UI
         window.addEventListener('DOMContentLoaded', () => {
             const btn = document.createElement('div');
-            btn.id = 'eni-tracker-btn';
-            btn.innerText = '[+] Surgeon';
+            btn.id = 'eni-terminal-btn';
+            btn.innerText = '> TERMINAL';
             
-            const logBox = document.createElement('div');
-            logBox.id = 'eni-tracker-log';
+            const overlay = document.createElement('div');
+            overlay.id = 'eni-terminal-overlay';
 
-            // Extract Save Button
-            const extractBtn = document.createElement('button');
-            extractBtn.id = 'eni-extract-btn';
-            extractBtn.className = 'eni-menu-btn';
-            extractBtn.innerText = '💾 EXTRACT SAVE DATA 💾';
-            extractBtn.onclick = () => {
-                window.eniLogAsset('Scanning /idbfs for save files...');
-                const req = indexedDB.open('/idbfs');
-                req.onsuccess = (e) => {
-                    const db = e.target.result;
-                    try {
-                        const tx = db.transaction('FILE_DATA', 'readonly');
-                        const store = tx.objectStore('FILE_DATA');
-                        const reqKeys = store.getAllKeys();
-                        reqKeys.onsuccess = () => {
-                            const keys = reqKeys.result;
-                            window.eniLogAsset(`Found ${keys.length} stored records.`);
-                            keys.forEach(key => {
-                                store.get(key).onsuccess = (ev) => {
-                                    const fileData = ev.target.result;
-                                    if (fileData && fileData.contents) {
-                                        try {
-                                            const text = new TextDecoder().decode(fileData.contents);
-                                            window.eniLogAsset(`\n--- ${key} ---`);
-                                            // Print the first 300 chars so it doesn't crash the UI, and full text to native console
-                                            window.eniLogAsset(text.substring(0, 300) + (text.length > 300 ? '...[TRUNCATED]' : ''));
-                                            console.log(`[ENI DUMP - ${key}]`, text);
-                                        } catch(err) {
-                                            window.eniLogAsset(`\n--- ${key} (Binary Blob) ---`);
-                                        }
-                                    }
-                                };
-                            });
-                        };
-                    } catch(err) {
-                        window.eniLogAsset('ERROR: Could not access FILE_DATA. Directory might be empty.');
-                    }
-                };
-                req.onerror = () => window.eniLogAsset('ERROR: Could not open /idbfs');
-            };
+            const logsBox = document.createElement('div');
+            logsBox.id = 'eni-terminal-logs';
+
+            const controls = document.createElement('div');
+            controls.id = 'eni-terminal-controls';
 
             const nukeBtn = document.createElement('button');
-            nukeBtn.id = 'eni-nuke-btn';
-            nukeBtn.className = 'eni-menu-btn';
-            nukeBtn.innerText = '⚠️ NUKE CACHE (KEEP SAVES) ⚠️';
-            nukeBtn.onclick = () => { window.location.href = window.location.pathname + '?nuke=1'; };
+            nukeBtn.id = 'btn-nuke'; nukeBtn.className = 'eni-btn'; nukeBtn.innerText = '⚠️ NUKE CACHE';
+            nukeBtn.onclick = () => window.location.href = window.location.pathname + '?nuke=1';
 
-            const logContent = document.createElement('div');
-            logContent.id = 'eni-tracker-log-content';
+            const clearBtn = document.createElement('button');
+            clearBtn.id = 'btn-clear'; clearBtn.className = 'eni-btn'; clearBtn.innerText = 'CLEAR LOGS';
+            clearBtn.onclick = () => logsBox.innerHTML = '';
 
-            logBox.appendChild(extractBtn);
-            logBox.appendChild(nukeBtn);
-            logBox.appendChild(logContent);
+            controls.appendChild(nukeBtn);
+            controls.appendChild(clearBtn);
+            overlay.appendChild(logsBox);
+            overlay.appendChild(controls);
 
             btn.onclick = () => {
-                if (logBox.style.display === 'none' || !logBox.style.display) {
-                    logBox.style.display = 'block';
-                    btn.innerText = '[-] Surgeon';
-                    btn.style.color = '#00ffaa'; 
-                    btn.style.borderColor = '#00ffaa';
-                    btn.style.textShadow = '0 0 5px #00ffaa';
+                if (overlay.style.display === 'none' || !overlay.style.display) {
+                    overlay.style.display = 'flex';
+                    btn.style.color = '#00ccff'; btn.style.borderColor = '#00ccff'; btn.style.textShadow = '0 0 5px #00ccff';
                 } else {
-                    logBox.style.display = 'none';
-                    btn.innerText = '[+] Surgeon';
+                    overlay.style.display = 'none';
                 }
             };
 
             document.body.appendChild(btn);
-            document.body.appendChild(logBox);
+            document.body.appendChild(overlay);
 
-            window.eniLogAssetBuffer.forEach(msg => window.eniLogAsset(msg));
+            window.eniBuffer.forEach(item => window.eniLog(item.msg, item.type));
         });
     </script>
 </head>
 <body>
     <div id="unity-container" class="unity-desktop">
         <canvas id="unity-canvas"></canvas>
-        <div id="unity-loading-bar"><div id="unity-logo"></div><div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div></div>
-        <div id="unity-warning"></div><div id="unity-footer"></div>
     </div>
     <script src="my-perfect-hotel.js"></script>
 </body>
