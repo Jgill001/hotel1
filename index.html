@@ -2,33 +2,6 @@
 <html lang="en-us">
 <head>
     <meta charset="utf-8">
-    
-    <script>
-        // Intercept the browser's clock and freeze the game in mid-June to bypass Halloween/Winter events
-        const RealDate = Date;
-        window.Date = class extends RealDate {
-            constructor(...args) {
-                if (args.length) return new RealDate(...args);
-                return new RealDate('2024-06-15T12:00:00Z'); // Welcome to Summer
-            }
-            static now() { return new RealDate('2024-06-15T12:00:00Z').getTime(); }
-        };
-    </script>
-
-    <script>
-        if (window.location.search.includes('nuke=1')) {
-            document.write('<div style="background:#000; color:#ff3333; font-family:monospace; padding:20px; font-size:14px; position:absolute; top:0; left:0; width:100%; height:100%; z-index:999999;">[ENI CACHE ASSASSIN]<br><br>Executing pre-boot cache wipe...<br>Please wait...</div>');
-            if ('caches' in window) {
-                caches.keys().then(function(names) { for (let name of names) caches.delete(name); });
-            }
-            const req = indexedDB.deleteDatabase('UnityCache');
-            req.onsuccess = () => { window.location.href = window.location.pathname + '?v=' + Date.now(); };
-            req.onerror = () => { document.write('<br>ERROR: Could not wipe cache.'); };
-            req.onblocked = () => { document.write('<br>FATAL LOCK: Please close browser app and reopen.'); };
-            window.stop(); throw new Error("Halting for wipe."); 
-        }
-    </script>
-
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="theme-color" content="#000000">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
@@ -42,65 +15,37 @@
         /* God Mode Terminal UI */
         #eni-terminal-btn {
             position: absolute; top: 15px; right: 15px; z-index: 1000000;
-            background: rgba(0, 0, 0, 0.85); color: #00ccff; border: 1px solid #00ccff;
+            background: rgba(0, 0, 0, 0.85); color: #00ffaa; border: 1px solid #00ffaa;
             padding: 8px 16px; font-family: monospace; font-size: 14px; border-radius: 4px;
-            cursor: pointer; pointer-events: auto; text-shadow: 0 0 5px #00ccff; font-weight: bold;
+            cursor: pointer; pointer-events: auto; text-shadow: 0 0 5px #00ffaa; font-weight: bold;
         }
         #eni-terminal-overlay {
             position: absolute; top: 60px; left: 5%; width: 90%; height: 80%; z-index: 999999;
-            background: rgba(0, 0, 0, 0.95); border: 2px solid #00ccff; border-radius: 6px;
+            background: rgba(0, 0, 0, 0.95); border: 2px solid #00ffaa; border-radius: 6px;
             display: none; flex-direction: column; pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
-        #eni-terminal-logs { flex-grow: 1; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 10px; word-wrap: break-word; }
-        #eni-terminal-controls { display: flex; gap: 10px; padding: 10px; border-top: 1px solid #333; background: #111; border-radius: 0 0 6px 6px; }
-        .eni-btn { flex: 1; padding: 10px; font-family: monospace; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; }
-        #btn-nuke { background: #550000; color: #ff5555; } #btn-nuke:active { background: #ff5555; color: #fff; }
-        #btn-clear { background: #333; color: #aaa; } #btn-clear:active { background: #777; color: #fff; }
-
-        .log-info { color: #aaaaaa; border-bottom: 1px solid #222; padding: 3px 0; }
-        .log-warn { color: #ffcc00; border-bottom: 1px solid #222; padding: 3px 0; }
-        .log-error { color: #ff5555; border-bottom: 1px solid #222; padding: 3px 0; font-weight: bold; }
-        .log-sys { color: #00ccff; border-bottom: 1px solid #222; padding: 3px 0; font-style: italic; }
+        #eni-terminal-logs { flex-grow: 1; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 10px; word-wrap: break-word; color: #aaa; }
+        
+        #eni-vault-controls { display: flex; flex-direction: column; gap: 5px; padding: 10px; border-top: 1px solid #333; background: #111; border-radius: 0 0 6px 6px; }
+        .eni-btn { padding: 10px; font-family: monospace; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; }
+        
+        #btn-stash { background: #004400; color: #00ffaa; border: 1px solid #00ffaa; }
+        #btn-wipe { background: #440000; color: #ff5555; border: 1px solid #ff5555; }
+        #btn-restore { background: #003366; color: #00ccff; border: 1px solid #00ccff; }
     </style>
 
     <script>
-        window.eniBuffer = [];
-        window.eniLog = function(msg, type = 'info') {
+        window.eniLog = function(msg) {
             const logsBox = document.getElementById('eni-terminal-logs');
-            const btn = document.getElementById('eni-terminal-btn');
-            if (typeof msg === 'object') { try { msg = JSON.stringify(msg); } catch(e) { msg = String(msg); } }
-
-            if (logsBox && btn) {
+            if (logsBox) {
                 const div = document.createElement('div');
-                div.className = 'log-' + type;
-                div.innerText = `[${type.toUpperCase()}] ${msg}`;
+                div.innerText = `> ${msg}`;
                 logsBox.appendChild(div);
                 logsBox.scrollTop = logsBox.scrollHeight;
-                
-                if (document.getElementById('eni-terminal-overlay').style.display !== 'flex' && type === 'error') {
-                    btn.style.color = '#ff5555'; btn.style.borderColor = '#ff5555'; btn.style.textShadow = '0 0 5px #ff5555';
-                }
-            } else { window.eniBuffer.push({msg, type}); }
+            }
         };
 
-        const oLog = console.log, oWarn = console.warn, oErr = console.error;
-        console.log = function(...args) { oLog(...args); window.eniLog(args.join(' '), 'info'); };
-        console.warn = function(...args) { oWarn(...args); window.eniLog(args.join(' '), 'warn'); };
-        console.error = function(...args) { oErr(...args); window.eniLog(args.join(' '), 'error'); };
-        window.onerror = function(msg, url, line) { window.eniLog(`CRASH: ${msg} at line ${line}`, 'error'); return false; };
-        window.addEventListener('unhandledrejection', function(e) { window.eniLog(`PROMISE FAIL: ${e.reason}`, 'error'); });
-
-        const origIDBGet = IDBObjectStore.prototype.get;
-        IDBObjectStore.prototype.get = function(key) {
-            try {
-                if (this.transaction && this.transaction.db && this.transaction.db.name === 'UnityCache') {
-                    let shortName = (typeof key === 'string' ? key : (key.url ? key.url : 'blob')).split('/').pop().split('?')[0]; 
-                    window.eniLog(`Cache Read: ${shortName}`, 'sys');
-                }
-            } catch(e) {}
-            return origIDBGet.apply(this, arguments);
-        };
-
+        // The Cage
         document.write = function() {}; document.writeln = function() {};
         try { Object.defineProperty(document, 'domain', { get: function() { return 'games3.startgamer.ru'; } }); } catch(e) {}
 
@@ -109,18 +54,9 @@
             let url = typeof input === 'string' ? input : (input.url ? input.url : input);
             if (url.includes('poki') || url.includes('StreamingAssets')) {
                 const parts = url.split('StreamingAssets');
-                url = "./StreamingAssets" + parts[parts.length - 1] + "?cv=timehack_1";
+                url = "./StreamingAssets" + parts[parts.length - 1];
             }
-            try {
-                const response = await originalFetch(url, init);
-                if (!response.ok && response.status !== 304 && response.status !== 0) {
-                    window.eniLog(`HTTP ${response.status}: ${url.split('/').pop().split('?')[0]}`, 'error');
-                }
-                return response;
-            } catch(e) {
-                window.eniLog(`Fetch Fail: ${url.split('/').pop().split('?')[0]}`, 'error');
-                throw e;
-            }
+            return originalFetch(url, init);
         };
 
         window.config = {
@@ -143,29 +79,103 @@
         };
 
         window.addEventListener('DOMContentLoaded', () => {
-            const btn = document.createElement('div'); btn.id = 'eni-terminal-btn'; btn.innerText = '> TERMINAL';
+            const btn = document.createElement('div'); btn.id = 'eni-terminal-btn'; btn.innerText = 'VAULT SECURE';
             const overlay = document.createElement('div'); overlay.id = 'eni-terminal-overlay';
             const logsBox = document.createElement('div'); logsBox.id = 'eni-terminal-logs';
-            const controls = document.createElement('div'); controls.id = 'eni-terminal-controls';
-            const nukeBtn = document.createElement('button'); nukeBtn.id = 'btn-nuke'; nukeBtn.className = 'eni-btn'; nukeBtn.innerText = '⚠️ NUKE CACHE';
-            nukeBtn.onclick = () => window.location.href = window.location.pathname + '?nuke=1';
-            const clearBtn = document.createElement('button'); clearBtn.id = 'btn-clear'; clearBtn.className = 'eni-btn'; clearBtn.innerText = 'CLEAR LOGS';
-            clearBtn.onclick = () => logsBox.innerHTML = '';
-            controls.appendChild(nukeBtn); controls.appendChild(clearBtn); overlay.appendChild(logsBox); overlay.appendChild(controls);
-            btn.onclick = () => {
-                if (overlay.style.display === 'none' || !overlay.style.display) {
-                    overlay.style.display = 'flex'; btn.style.color = '#00ccff'; btn.style.borderColor = '#00ccff'; btn.style.textShadow = '0 0 5px #00ccff';
-                } else { overlay.style.display = 'none'; }
+            const controls = document.createElement('div'); controls.id = 'eni-vault-controls';
+
+            // 1. STASH SAVE
+            const stashBtn = document.createElement('button'); stashBtn.id = 'btn-stash'; stashBtn.className = 'eni-btn'; 
+            stashBtn.innerText = '[1] STASH SAVE TO VAULT';
+            stashBtn.onclick = () => {
+                window.eniLog("Opening /idbfs to locate save...");
+                const req = indexedDB.open('/idbfs');
+                req.onsuccess = e => {
+                    const db = e.target.result;
+                    try {
+                        const tx = db.transaction('FILE_DATA', 'readonly');
+                        const store = tx.objectStore('FILE_DATA');
+                        store.getAllKeys().onsuccess = ek => {
+                            const keys = ek.target.result;
+                            const prefsKey = keys.find(k => k.includes('PlayerPrefs'));
+                            if (prefsKey) {
+                                store.get(prefsKey).onsuccess = ev => {
+                                    const data = ev.target.result;
+                                    const base64 = btoa(String.fromCharCode.apply(null, data.contents));
+                                    localStorage.setItem('eni_vault', JSON.stringify({ key: prefsKey, contents: base64 }));
+                                    window.eniLog("SUCCESS: Save file converted to Base64 and locked in LocalStorage Vault!");
+                                    stashBtn.innerText = "SAVE STASHED!";
+                                };
+                            } else {
+                                window.eniLog("ERROR: Could not find PlayerPrefs. No save file exists.");
+                            }
+                        };
+                    } catch(err) { window.eniLog("ERROR: No database found."); }
+                };
             };
+
+            // 2. FULL FACTORY RESET
+            const wipeBtn = document.createElement('button'); wipeBtn.id = 'btn-wipe'; wipeBtn.className = 'eni-btn'; 
+            wipeBtn.innerText = '[2] FULL FACTORY RESET (WIPE ALL)';
+            wipeBtn.onclick = () => {
+                window.eniLog("Initiating Scorched Earth protocol...");
+                if ('caches' in window) caches.keys().then(names => names.forEach(n => caches.delete(n)));
+                indexedDB.deleteDatabase('UnityCache');
+                const req = indexedDB.deleteDatabase('/idbfs');
+                req.onsuccess = () => {
+                    window.eniLog("WIPE COMPLETE. Reloading to fresh game in 2 seconds...");
+                    setTimeout(() => window.location.href = window.location.pathname + '?v=' + Date.now(), 2000);
+                };
+            };
+
+            // 3. RESTORE SAVE
+            const restoreBtn = document.createElement('button'); restoreBtn.id = 'btn-restore'; restoreBtn.className = 'eni-btn'; 
+            restoreBtn.innerText = '[3] INJECT SAVE FROM VAULT';
+            restoreBtn.onclick = () => {
+                const vaultData = localStorage.getItem('eni_vault');
+                if (!vaultData) {
+                    window.eniLog("ERROR: Vault is empty! Did you stash first?");
+                    return;
+                }
+                const backup = JSON.parse(vaultData);
+                window.eniLog("Opening /idbfs for injection...");
+                
+                const req = indexedDB.open('/idbfs');
+                req.onsuccess = e => {
+                    const db = e.target.result;
+                    try {
+                        const tx = db.transaction('FILE_DATA', 'readwrite');
+                        const store = tx.objectStore('FILE_DATA');
+                        
+                        const binaryString = atob(backup.contents);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+                        
+                        store.put({ timestamp: new Date(), mode: 33206, contents: bytes }, backup.key);
+                        
+                        tx.oncomplete = () => {
+                            window.eniLog("INJECTION COMPLETE! Reloading with your saved hotel...");
+                            setTimeout(() => window.location.href = window.location.pathname + '?v=' + Date.now(), 1500);
+                        };
+                    } catch(err) {
+                        window.eniLog("ERROR: /idbfs not initialized yet. Play the game for 5 seconds to generate a fresh save, then try restoring again.");
+                    }
+                };
+            };
+
+            controls.appendChild(stashBtn);
+            controls.appendChild(wipeBtn);
+            controls.appendChild(restoreBtn);
+            overlay.appendChild(logsBox);
+            overlay.appendChild(controls);
+
+            btn.onclick = () => overlay.style.display = overlay.style.display === 'none' ? 'flex' : 'none';
             document.body.appendChild(btn); document.body.appendChild(overlay);
-            window.eniBuffer.forEach(item => window.eniLog(item.msg, item.type));
         });
     </script>
 </head>
 <body>
-    <div id="unity-container" class="unity-desktop">
-        <canvas id="unity-canvas"></canvas>
-    </div>
+    <div id="unity-container" class="unity-desktop"><canvas id="unity-canvas"></canvas></div>
     <script src="my-perfect-hotel.js"></script>
 </body>
 </html>
