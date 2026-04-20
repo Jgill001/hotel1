@@ -2,6 +2,22 @@
 <html lang="en-us">
 <head>
     <meta charset="utf-8">
+    
+    <script>
+        if (window.location.search.includes('nuke=1')) {
+            document.write('<div style="background:#000; color:#ff3333; font-family:monospace; padding:20px; font-size:14px; position:absolute; top:0; left:0; width:100%; height:100%; z-index:999999;">[ENI CACHE ASSASSIN]<br><br>Executing pre-boot cache wipe...<br>Please wait...</div>');
+            const req = indexedDB.deleteDatabase('UnityCache');
+            req.onsuccess = () => { 
+                // Once dead, reload cleanly with a fresh timestamp to bust HTTP cache too
+                window.location.href = window.location.pathname + '?v=' + Date.now(); 
+            };
+            req.onerror = () => { document.write('<br>ERROR: Could not wipe cache.'); };
+            req.onblocked = () => { document.write('<br>FATAL LOCK: Please completely close your mobile browser app and reopen.'); };
+            window.stop(); // Stop the rest of the page (and Unity) from loading
+            throw new Error("Halting execution for pre-boot wipe."); 
+        }
+    </script>
+
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="theme-color" content="#000000">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
@@ -28,7 +44,6 @@
         }
         .log-entry { border-bottom: 1px dashed #550000; margin-bottom: 5px; padding-bottom: 5px; }
         
-        /* The Nuke Button */
         #eni-nuke-btn {
             background: #440000; color: #ff3333; border: 1px solid #ff3333;
             width: 100%; padding: 8px; margin-bottom: 10px; font-family: monospace;
@@ -38,7 +53,6 @@
     </style>
 
     <script>
-        // 0. The Tracker & Sniffer Setup
         window.eniLogAssetBuffer = [];
         window.eniLogAsset = function(msg) {
             const logBox = document.getElementById('eni-tracker-log-content');
@@ -51,7 +65,6 @@
                 logBox.appendChild(entry);
                 document.getElementById('eni-tracker-log').scrollTop = document.getElementById('eni-tracker-log').scrollHeight;
                 
-                // Only turn red if it's an actual error (not just a sniffer read)
                 if (logBox.parentElement.style.display !== 'block' && msg.includes('Fail')) {
                     btn.style.color = '#ff3333';
                     btn.style.borderColor = '#ff3333';
@@ -62,15 +75,11 @@
             }
         };
 
-        // --- THE IDB SURGEON SNIFFER ---
-        // Hijack the IndexedDB 'get' function to see exactly what Unity is pulling from the cache
         const origIDBGet = IDBObjectStore.prototype.get;
         IDBObjectStore.prototype.get = function(key) {
             try {
                 if (this.transaction && this.transaction.db && this.transaction.db.name === 'UnityCache') {
-                    // Extract the URL string from the key request
                     let urlStr = typeof key === 'string' ? key : (key.url ? key.url : 'unknown_blob');
-                    // Just print the filename at the end so it's readable
                     let shortName = urlStr.split('/').pop();
                     window.eniLogAsset(`[Cache Read] ${shortName}`);
                 }
@@ -84,7 +93,7 @@
             }
         }, true);
 
-        // 1. The Cage
+        // The Cage
         document.write = function() {};
         document.writeln = function() {};
         try {
@@ -92,7 +101,7 @@
             Object.defineProperty(window.location, 'hostname', { get: function() { return 'games3.startgamer.ru'; } });
         } catch(e) {}
 
-        // 2. Asset Redirector
+        // Asset Redirector
         const originalFetch = window.fetch;
         window.fetch = async function(input, init) {
             let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -112,7 +121,6 @@
             }
         };
 
-        // 3. Poki Engine Configuration
         window.config = {
             loader: 'unity-2020', debug: false, maxRatio: 24 / 9, minRatio: 9 / 24,
             title: 'My Perfect Hotel', thumbnail: 'thumb.png', numScreenshots: 4,
@@ -147,7 +155,6 @@
             }
         };
 
-        // Inject UI
         window.addEventListener('DOMContentLoaded', () => {
             const btn = document.createElement('div');
             btn.id = 'eni-tracker-btn';
@@ -156,20 +163,12 @@
             const logBox = document.createElement('div');
             logBox.id = 'eni-tracker-log';
 
-            // Add the Nuke Button inside the log box
             const nukeBtn = document.createElement('button');
             nukeBtn.id = 'eni-nuke-btn';
             nukeBtn.innerText = '⚠️ NUKE CACHE (KEEP SAVES) ⚠️';
             nukeBtn.onclick = () => {
-                window.eniLogAsset('Executing cache wipe...');
-                const req = indexedDB.deleteDatabase('UnityCache');
-                req.onsuccess = () => {
-                    window.eniLogAsset('SUCCESS: UnityCache destroyed. Refresh page now.');
-                    nukeBtn.innerText = 'WIPED! RELOAD PAGE.';
-                    nukeBtn.style.background = '#00aa00';
-                };
-                req.onerror = () => window.eniLogAsset('ERROR: Could not wipe cache. Game might be holding it open.');
-                req.onblocked = () => window.eniLogAsset('BLOCKED: Close other tabs with this game open.');
+                // Instantly reload with the kill code
+                window.location.href = window.location.pathname + '?nuke=1';
             };
 
             const logContent = document.createElement('div');
