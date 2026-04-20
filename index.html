@@ -8,10 +8,8 @@
     <title>My Perfect Hotel</title>
     <style>
         html, body { padding: 0; margin: 0; background-color: #000000; overflow: hidden; width: 100%; height: 100%; touch-action: none; }
-        
         #unity-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; }
         #unity-canvas { width: 100%; height: 100%; display: block; outline: none; background-color: #000000; }
-        
         #unity-loading-bar, #unity-warning, #unity-footer { display: none !important; }
 
         /* ENI Asset Tracker UI */
@@ -29,13 +27,21 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         .log-entry { border-bottom: 1px dashed #550000; margin-bottom: 5px; padding-bottom: 5px; }
+        
+        /* The Nuke Button */
+        #eni-nuke-btn {
+            background: #440000; color: #ff3333; border: 1px solid #ff3333;
+            width: 100%; padding: 8px; margin-bottom: 10px; font-family: monospace;
+            font-weight: bold; cursor: pointer; border-radius: 4px;
+        }
+        #eni-nuke-btn:active { background: #ff3333; color: white; }
     </style>
 
     <script>
-        // 0. The Tracker Logic Setup
+        // 0. The Tracker & Sniffer Setup
         window.eniLogAssetBuffer = [];
         window.eniLogAsset = function(msg) {
-            const logBox = document.getElementById('eni-tracker-log');
+            const logBox = document.getElementById('eni-tracker-log-content');
             const btn = document.getElementById('eni-tracker-btn');
             
             if (logBox && btn) {
@@ -43,9 +49,10 @@
                 entry.className = 'log-entry';
                 entry.innerText = msg;
                 logBox.appendChild(entry);
-                logBox.scrollTop = logBox.scrollHeight;
+                document.getElementById('eni-tracker-log').scrollTop = document.getElementById('eni-tracker-log').scrollHeight;
                 
-                if (logBox.style.display !== 'block') {
+                // Only turn red if it's an actual error (not just a sniffer read)
+                if (logBox.parentElement.style.display !== 'block' && msg.includes('Fail')) {
                     btn.style.color = '#ff3333';
                     btn.style.borderColor = '#ff3333';
                     btn.style.textShadow = '0 0 5px #ff3333';
@@ -53,6 +60,22 @@
             } else {
                 window.eniLogAssetBuffer.push(msg);
             }
+        };
+
+        // --- THE IDB SURGEON SNIFFER ---
+        // Hijack the IndexedDB 'get' function to see exactly what Unity is pulling from the cache
+        const origIDBGet = IDBObjectStore.prototype.get;
+        IDBObjectStore.prototype.get = function(key) {
+            try {
+                if (this.transaction && this.transaction.db && this.transaction.db.name === 'UnityCache') {
+                    // Extract the URL string from the key request
+                    let urlStr = typeof key === 'string' ? key : (key.url ? key.url : 'unknown_blob');
+                    // Just print the filename at the end so it's readable
+                    let shortName = urlStr.split('/').pop();
+                    window.eniLogAsset(`[Cache Read] ${shortName}`);
+                }
+            } catch(e) {}
+            return origIDBGet.apply(this, arguments);
         };
 
         window.addEventListener('error', function(e) {
@@ -69,7 +92,7 @@
             Object.defineProperty(window.location, 'hostname', { get: function() { return 'games3.startgamer.ru'; } });
         } catch(e) {}
 
-        // 2. Asset Redirector (Silenced 304s)
+        // 2. Asset Redirector
         const originalFetch = window.fetch;
         window.fetch = async function(input, init) {
             let url = typeof input === 'string' ? input : (input.url ? input.url : input);
@@ -79,13 +102,12 @@
             }
             try {
                 const response = await originalFetch(url, init);
-                // Explicitly ignore 304 (Cached) and 0 (Opaque) status codes
                 if (!response.ok && response.status !== 304 && response.status !== 0) {
-                    window.eniLogAsset(`HTTP ${response.status}: ${url}`);
+                    window.eniLogAsset(`HTTP ${response.status}: ${url.split('/').pop()}`);
                 }
                 return response;
             } catch(e) {
-                window.eniLogAsset(`Network Fail: ${url}`);
+                window.eniLogAsset(`Network Fail: ${url.split('/').pop()}`);
                 throw e;
             }
         };
@@ -125,24 +147,47 @@
             }
         };
 
+        // Inject UI
         window.addEventListener('DOMContentLoaded', () => {
             const btn = document.createElement('div');
             btn.id = 'eni-tracker-btn';
-            btn.innerText = '[+] Tracker';
+            btn.innerText = '[+] Surgeon';
             
             const logBox = document.createElement('div');
             logBox.id = 'eni-tracker-log';
 
+            // Add the Nuke Button inside the log box
+            const nukeBtn = document.createElement('button');
+            nukeBtn.id = 'eni-nuke-btn';
+            nukeBtn.innerText = '⚠️ NUKE CACHE (KEEP SAVES) ⚠️';
+            nukeBtn.onclick = () => {
+                window.eniLogAsset('Executing cache wipe...');
+                const req = indexedDB.deleteDatabase('UnityCache');
+                req.onsuccess = () => {
+                    window.eniLogAsset('SUCCESS: UnityCache destroyed. Refresh page now.');
+                    nukeBtn.innerText = 'WIPED! RELOAD PAGE.';
+                    nukeBtn.style.background = '#00aa00';
+                };
+                req.onerror = () => window.eniLogAsset('ERROR: Could not wipe cache. Game might be holding it open.');
+                req.onblocked = () => window.eniLogAsset('BLOCKED: Close other tabs with this game open.');
+            };
+
+            const logContent = document.createElement('div');
+            logContent.id = 'eni-tracker-log-content';
+
+            logBox.appendChild(nukeBtn);
+            logBox.appendChild(logContent);
+
             btn.onclick = () => {
                 if (logBox.style.display === 'none' || !logBox.style.display) {
                     logBox.style.display = 'block';
-                    btn.innerText = '[-] Tracker';
+                    btn.innerText = '[-] Surgeon';
                     btn.style.color = '#00ffaa'; 
                     btn.style.borderColor = '#00ffaa';
                     btn.style.textShadow = '0 0 5px #00ffaa';
                 } else {
                     logBox.style.display = 'none';
-                    btn.innerText = '[+] Tracker';
+                    btn.innerText = '[+] Surgeon';
                 }
             };
 
@@ -159,7 +204,6 @@
         <div id="unity-loading-bar"><div id="unity-logo"></div><div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div></div>
         <div id="unity-warning"></div><div id="unity-footer"></div>
     </div>
-
     <script src="my-perfect-hotel.js"></script>
 </body>
 </html>
