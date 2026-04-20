@@ -4,6 +4,18 @@
     <meta charset="utf-8">
     
     <script>
+        // Intercept the browser's clock and freeze the game in mid-June to bypass Halloween/Winter events
+        const RealDate = Date;
+        window.Date = class extends RealDate {
+            constructor(...args) {
+                if (args.length) return new RealDate(...args);
+                return new RealDate('2024-06-15T12:00:00Z'); // Welcome to Summer
+            }
+            static now() { return new RealDate('2024-06-15T12:00:00Z').getTime(); }
+        };
+    </script>
+
+    <script>
         if (window.location.search.includes('nuke=1')) {
             document.write('<div style="background:#000; color:#ff3333; font-family:monospace; padding:20px; font-size:14px; position:absolute; top:0; left:0; width:100%; height:100%; z-index:999999;">[ENI CACHE ASSASSIN]<br><br>Executing pre-boot cache wipe...<br>Please wait...</div>');
             if ('caches' in window) {
@@ -39,12 +51,8 @@
             background: rgba(0, 0, 0, 0.95); border: 2px solid #00ccff; border-radius: 6px;
             display: none; flex-direction: column; pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
-        #eni-terminal-logs {
-            flex-grow: 1; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 10px; word-wrap: break-word;
-        }
-        #eni-terminal-controls {
-            display: flex; gap: 10px; padding: 10px; border-top: 1px solid #333; background: #111; border-radius: 0 0 6px 6px;
-        }
+        #eni-terminal-logs { flex-grow: 1; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 10px; word-wrap: break-word; }
+        #eni-terminal-controls { display: flex; gap: 10px; padding: 10px; border-top: 1px solid #333; background: #111; border-radius: 0 0 6px 6px; }
         .eni-btn { flex: 1; padding: 10px; font-family: monospace; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; }
         #btn-nuke { background: #550000; color: #ff5555; } #btn-nuke:active { background: #ff5555; color: #fff; }
         #btn-clear { background: #333; color: #aaa; } #btn-clear:active { background: #777; color: #fff; }
@@ -56,16 +64,11 @@
     </style>
 
     <script>
-        // --- GOD MODE INTERCEPTOR ---
         window.eniBuffer = [];
         window.eniLog = function(msg, type = 'info') {
             const logsBox = document.getElementById('eni-terminal-logs');
             const btn = document.getElementById('eni-terminal-btn');
-            
-            // Format objects
-            if (typeof msg === 'object') {
-                try { msg = JSON.stringify(msg); } catch(e) { msg = String(msg); }
-            }
+            if (typeof msg === 'object') { try { msg = JSON.stringify(msg); } catch(e) { msg = String(msg); } }
 
             if (logsBox && btn) {
                 const div = document.createElement('div');
@@ -77,21 +80,16 @@
                 if (document.getElementById('eni-terminal-overlay').style.display !== 'flex' && type === 'error') {
                     btn.style.color = '#ff5555'; btn.style.borderColor = '#ff5555'; btn.style.textShadow = '0 0 5px #ff5555';
                 }
-            } else {
-                window.eniBuffer.push({msg, type});
-            }
+            } else { window.eniBuffer.push({msg, type}); }
         };
 
-        // Hijack native console
         const oLog = console.log, oWarn = console.warn, oErr = console.error;
         console.log = function(...args) { oLog(...args); window.eniLog(args.join(' '), 'info'); };
         console.warn = function(...args) { oWarn(...args); window.eniLog(args.join(' '), 'warn'); };
         console.error = function(...args) { oErr(...args); window.eniLog(args.join(' '), 'error'); };
-
         window.onerror = function(msg, url, line) { window.eniLog(`CRASH: ${msg} at line ${line}`, 'error'); return false; };
         window.addEventListener('unhandledrejection', function(e) { window.eniLog(`PROMISE FAIL: ${e.reason}`, 'error'); });
 
-        // Hijack IDB
         const origIDBGet = IDBObjectStore.prototype.get;
         IDBObjectStore.prototype.get = function(key) {
             try {
@@ -103,21 +101,15 @@
             return origIDBGet.apply(this, arguments);
         };
 
-        // The Cage
-        document.write = function() {};
-        document.writeln = function() {};
-        try {
-            Object.defineProperty(document, 'domain', { get: function() { return 'games3.startgamer.ru'; } });
-            Object.defineProperty(window.location, 'hostname', { get: function() { return 'games3.startgamer.ru'; } });
-        } catch(e) {}
+        document.write = function() {}; document.writeln = function() {};
+        try { Object.defineProperty(document, 'domain', { get: function() { return 'games3.startgamer.ru'; } }); } catch(e) {}
 
-        // Asset Redirector
         const originalFetch = window.fetch;
         window.fetch = async function(input, init) {
             let url = typeof input === 'string' ? input : (input.url ? input.url : input);
             if (url.includes('poki') || url.includes('StreamingAssets')) {
                 const parts = url.split('StreamingAssets');
-                url = "./StreamingAssets" + parts[parts.length - 1] + "?cv=godmode_1";
+                url = "./StreamingAssets" + parts[parts.length - 1] + "?cv=timehack_1";
             }
             try {
                 const response = await originalFetch(url, init);
@@ -126,86 +118,46 @@
                 }
                 return response;
             } catch(e) {
-                window.eniLog(`Network Fetch Fail: ${url.split('/').pop().split('?')[0]}`, 'error');
+                window.eniLog(`Fetch Fail: ${url.split('/').pop().split('?')[0]}`, 'error');
                 throw e;
             }
         };
 
-        // Unity Config
         window.config = {
             loader: 'unity-2020', debug: false, maxRatio: 24 / 9, minRatio: 9 / 24,
             title: 'My Perfect Hotel', thumbnail: 'thumb.png', numScreenshots: 4,
-            unityVersion: '2022.3.18f1', 
-            unityWebglBuildUrl: 'Build/', 
-            fileSize: 31,
+            unityVersion: '2022.3.18f1', unityWebglBuildUrl: 'Build/', fileSize: 31,
             cachedDecompressedFileSizes: {
-                '2809ee090e7f1bf0e1a32425590981e7.framework.js': 1,
-                '101a0553a2917fd4c62a7e2159d30814.data': 1,
-                '9d94f3fbc22c5914756c67722e0cdaca.wasm': 1,
-                'ea153e321edf23b9a40b38d65ce41d01.loader.js': 1,
+                '2809ee090e7f1bf0e1a32425590981e7.framework.js': 1, '101a0553a2917fd4c62a7e2159d30814.data': 1,
+                '9d94f3fbc22c5914756c67722e0cdaca.wasm': 1, 'ea153e321edf23b9a40b38d65ce41d01.loader.js': 1,
             },
             "metadata": {
-                "poki_template_version": 1,
-                "background_color": "#000000",
-                "company_name": "master", 
-                "product_name": "My Hotel",
-                "product_version": "1.0.3",
-                "splash_screen_style": "Dark",
-                "unity_version": "2022.3.18f1",
-                "use_data_caching": "true",
-                "use_threads": "false",
-                "use_wasm": "true",
-                "use_webgl_1_0": "false",
-                "use_webgl_2_0": "true",
-                "width": "1080",
-                "height": "1920",
-                "code_filename": "9d94f3fbc22c5914756c67722e0cdaca.wasm",
-                "data_filename": "101a0553a2917fd4c62a7e2159d30814.data",
-                "framework_filename": "2809ee090e7f1bf0e1a32425590981e7.framework.js",
+                "poki_template_version": 1, "background_color": "#000000", "company_name": "master", 
+                "product_name": "My Hotel", "product_version": "1.0.3", "splash_screen_style": "Dark",
+                "unity_version": "2022.3.18f1", "use_data_caching": "true", "use_threads": "false",
+                "use_wasm": "true", "use_webgl_1_0": "false", "use_webgl_2_0": "true",
+                "width": "1080", "height": "1920", "code_filename": "9d94f3fbc22c5914756c67722e0cdaca.wasm",
+                "data_filename": "101a0553a2917fd4c62a7e2159d30814.data", "framework_filename": "2809ee090e7f1bf0e1a32425590981e7.framework.js",
                 "loader_filename": "ea153e321edf23b9a40b38d65ce41d01.loader.js"
             }
         };
 
-        // Inject UI
         window.addEventListener('DOMContentLoaded', () => {
-            const btn = document.createElement('div');
-            btn.id = 'eni-terminal-btn';
-            btn.innerText = '> TERMINAL';
-            
-            const overlay = document.createElement('div');
-            overlay.id = 'eni-terminal-overlay';
-
-            const logsBox = document.createElement('div');
-            logsBox.id = 'eni-terminal-logs';
-
-            const controls = document.createElement('div');
-            controls.id = 'eni-terminal-controls';
-
-            const nukeBtn = document.createElement('button');
-            nukeBtn.id = 'btn-nuke'; nukeBtn.className = 'eni-btn'; nukeBtn.innerText = '⚠️ NUKE CACHE';
+            const btn = document.createElement('div'); btn.id = 'eni-terminal-btn'; btn.innerText = '> TERMINAL';
+            const overlay = document.createElement('div'); overlay.id = 'eni-terminal-overlay';
+            const logsBox = document.createElement('div'); logsBox.id = 'eni-terminal-logs';
+            const controls = document.createElement('div'); controls.id = 'eni-terminal-controls';
+            const nukeBtn = document.createElement('button'); nukeBtn.id = 'btn-nuke'; nukeBtn.className = 'eni-btn'; nukeBtn.innerText = '⚠️ NUKE CACHE';
             nukeBtn.onclick = () => window.location.href = window.location.pathname + '?nuke=1';
-
-            const clearBtn = document.createElement('button');
-            clearBtn.id = 'btn-clear'; clearBtn.className = 'eni-btn'; clearBtn.innerText = 'CLEAR LOGS';
+            const clearBtn = document.createElement('button'); clearBtn.id = 'btn-clear'; clearBtn.className = 'eni-btn'; clearBtn.innerText = 'CLEAR LOGS';
             clearBtn.onclick = () => logsBox.innerHTML = '';
-
-            controls.appendChild(nukeBtn);
-            controls.appendChild(clearBtn);
-            overlay.appendChild(logsBox);
-            overlay.appendChild(controls);
-
+            controls.appendChild(nukeBtn); controls.appendChild(clearBtn); overlay.appendChild(logsBox); overlay.appendChild(controls);
             btn.onclick = () => {
                 if (overlay.style.display === 'none' || !overlay.style.display) {
-                    overlay.style.display = 'flex';
-                    btn.style.color = '#00ccff'; btn.style.borderColor = '#00ccff'; btn.style.textShadow = '0 0 5px #00ccff';
-                } else {
-                    overlay.style.display = 'none';
-                }
+                    overlay.style.display = 'flex'; btn.style.color = '#00ccff'; btn.style.borderColor = '#00ccff'; btn.style.textShadow = '0 0 5px #00ccff';
+                } else { overlay.style.display = 'none'; }
             };
-
-            document.body.appendChild(btn);
-            document.body.appendChild(overlay);
-
+            document.body.appendChild(btn); document.body.appendChild(overlay);
             window.eniBuffer.forEach(item => window.eniLog(item.msg, item.type));
         });
     </script>
